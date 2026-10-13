@@ -1,0 +1,17 @@
+# A CI shape: what a Go repo's workflows must look like.
+workflows:
+  .github/workflows/ci.yml:
+    ownership: caller          # full | caller | constraints
+    uses: temikus/.github/.github/workflows/go-ci.yml@main
+    with: { go-version-file: go.mod }
+
+  .github/workflows/release.yml:
+    ownership: caller
+    uses: temikus/.github/.github/workflows/release-please.yml@main
+
+# Applied to every workflow in the repo, whoever owns it.
+# SHA pinning is the actions.pinning policy, not a shape constraint.
+constraints:
+  permissions: required
+  timeout_minutes: required
+  concurrency: required

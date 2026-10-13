@@ -1,0 +1,5 @@
+# Per-repo opt-out. Lives in the target repo, not the control repo.
+exempt:
+  - policy: ci.shape
+    reason: "custom cross-compile matrix, see #42"
+    until: 2027-01-01

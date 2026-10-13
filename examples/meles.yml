@@ -1,0 +1,70 @@
+# Lives in <owner>/meles (control repo). Paths are relative to it.
+version: 1
+
+defaults:
+  mode: pr                 # observe | pr | enforce
+  pr:
+    branch: meles/housekeeping
+    labels: [housekeeping]
+    max_per_run: 20
+    on_close: accept         # accept | reopen
+
+selectors:
+  all:    { archived: false, fork: false }
+  public: { visibility: public }
+  go:     { files: [go.mod] }
+  python: { files: [pyproject.toml] }
+
+policies:
+  - id: deps.updater
+    on: all
+    with:
+      prefer: renovate                      # renovate | dependabot
+      extends: ["github>temikus/renovate-config"]
+      forbid_both: true
+
+  - id: security.features
+    on: all
+    mode: enforce
+    with:
+      secret_scanning: true
+      push_protection: true
+      dependabot_alerts: true
+      private_vuln_reporting: true
+
+  - id: governance.files
+    on: public
+    on_close: reopen                      # SECURITY.md is not optional
+    with:
+      LICENSE:            { template: templates/LICENSE.apache-2.0 }
+      SECURITY.md:        { template: templates/SECURITY.md }
+      CODEOWNERS:         { template: templates/CODEOWNERS, path: .github/CODEOWNERS }
+      README.md:          { badges: [ci, license] }       # check only
+
+  - id: governance.settings
+    on: all
+    mode: enforce
+    with:
+      merge: { squash: true, merge: false, rebase: false, delete_branch: true }
+      features: { wiki: false, projects: false }
+      ruleset: rulesets/default.json
+
+  # `id` is the policy kind; a kind may repeat with disjoint selectors.
+  - id: ci.shape
+    on: go
+    with: { shape: shapes/go.yml }
+
+  - id: ci.shape
+    on: python
+    with: { shape: shapes/python.yml }
+
+  - id: actions.pinning
+    on: all
+    on_close: reopen
+    with: { pin: sha, comment_version: true }
+
+  - id: release.tooling
+    on: all
+    with:
+      tool: release-please
+      config: templates/release-please.json
