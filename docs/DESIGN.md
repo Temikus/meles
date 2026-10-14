@@ -1,6 +1,6 @@
 # meles design notes (2026-10-14)
 
-Status: design agreed, no code yet. Prototype screens live in the Paper
+Status: milestones 1 and 2 implemented (read-only `meles plan`). Prototype screens live in the Paper
 file "meles · workflow prototypes" (five artboards: how it works, fleet
 dashboard, repo plan to PR, CLI plan, release notes).
 
@@ -140,6 +140,9 @@ conventional-commit type, with an LLM pass for the summary paragraph.
   marker-file match, not a language guess from GitHub's linguist.
 - Selectors exclude archived repos unless they say `archived: true`.
   Archived repos reject every write.
+- Selector fields combine with AND; items in a list combine with OR, so
+  `files: [go.mod, go.work]` matches either. `files` entries are tree
+  paths or `path.Match` globs; `name` is a glob.
 - Templates and shapes are paths relative to the control repo. The PR
   body cites the control-repo commit they were rendered from.
 
@@ -175,6 +178,23 @@ PR remediation + stack-aware CI shapes + release hygiene.
   generated file before PRing it.
 - Rate limits: 5000 req/h per installation. Fine for hundreds of repos
   with ETag caching; thousands need sharding across runs.
+
+Found while building milestone 2 (verified against the live API):
+
+- "Renovate app installed" cannot be read. `GET /user/installations` is
+  403 for `gh` OAuth tokens, and an App token only sees its own App. Needs
+  a heuristic (e.g. `renovate[bot]` PRs) if it is wanted.
+- `GET vulnerability-alerts` answers 204 with no ETag, so it costs one
+  request per repo per run. Every other facts call revalidates for free.
+- `GET /rate_limit` reported 0 used for a `gh` OAuth token while the
+  `X-RateLimit-Used` response header counted correctly. Trust the header.
+- Recursive `git/trees` on larger repos returns 500 intermittently; GETs
+  retry twice on 5xx.
+- `security_and_analysis` is null for an admin on a private repo without
+  GHAS. Treated as unavailable, not drift, so enforce cannot loop on it.
+- A stale `renovate-config-validator` rejects newer options already in a
+  repo. Validation blocks a change only if the current file passes and the
+  changed one fails.
 
 ## Decisions
 

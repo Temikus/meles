@@ -1,0 +1,221 @@
+// Package plan runs the read-only pipeline: inventory, facts, evaluate, plan.
+package plan
+
+import (
+	"cmp"
+	"encoding/json"
+	"fmt"
+	"io/fs"
+	"slices"
+	"strings"
+
+	"github.com/temikus/meles/internal/config"
+	"github.com/temikus/meles/internal/facts"
+	"github.com/temikus/meles/internal/policy"
+	"github.com/temikus/meles/internal/policy/registry"
+	"github.com/temikus/meles/internal/selector"
+)
+
+// Instance is one configured policy entry, ready to evaluate.
+type Instance struct {
+	Name     string // kind, or kind[selector] when the kind repeats
+	Spec     config.PolicySpec
+	Selector config.Selector
+	Policy   policy.Policy
+}
+
+// Build turns config entries into instances. Planned-but-unimplemented kinds
+// become warnings; unknown kinds and bad with: blocks are errors.
+func Build(cfg *config.Config, ctl fs.FS) (insts []Instance, warnings []string, err error) {
+	var errs config.Errors
+	for _, spec := range cfg.Policies {
+		name := spec.Instance(cfg.Policies)
+		factory, ok := registry.Lookup(spec.ID)
+		if !ok {
+			if registry.Planned(spec.ID) {
+				warnings = append(warnings, fmt.Sprintf("%s:%d: policy %s is not implemented yet, skipped", cfg.File, spec.Line, name))
+			} else {
+				errs = append(errs, config.Error{File: cfg.File, Line: spec.Line, Msg: fmt.Sprintf("unknown policy kind %q", spec.ID)})
+			}
+			continue
+		}
+		p, ferr := factory(&spec.With, ctl)
+		if ferr != nil {
+			errs = append(errs, config.Error{File: cfg.File, Line: spec.Line, Msg: fmt.Sprintf("policy %s: %v", name, ferr)})
+			continue
+		}
+		insts = append(insts, Instance{Name: name, Spec: spec.Resolved(cfg.Defaults), Selector: cfg.Selectors[spec.On], Policy: p})
+	}
+	if len(errs) > 0 {
+		return nil, warnings, errs
+	}
+	return insts, warnings, nil
+}
+
+// Action is what apply would do with an item.
+type Action string
+
+// Actions.
+const (
+	ActionPR     Action = "pr"     // file change, goes into the housekeeping PR
+	ActionApply  Action = "apply"  // setting change, applied directly
+	ActionReport Action = "report" // has a fix, but mode does not allow it
+	ActionCheck  Action = "check"  // no automatic fix
+)
+
+// Item is one finding with what meles would do about it.
+type Item struct {
+	Policy  string         `json:"policy"`
+	Finding policy.Finding `json:"finding"`
+	Key     string         `json:"key"`
+	Shape   string         `json:"shape"`
+	Mode    config.Mode    `json:"mode"`
+	OnClose config.OnClose `json:"on_close"`
+	Action  Action         `json:"action"`
+	Note    string         `json:"note,omitempty"`
+	Invalid string         `json:"invalid,omitempty"` // validator output; apply refuses the change
+	Change  policy.Change  `json:"-"`
+	Before  []byte         `json:"-"` // current content when Change updates a file
+}
+
+// MarshalJSON adds the change with its type, and file content as text.
+func (it Item) MarshalJSON() ([]byte, error) {
+	type plain Item
+	var change any
+	switch c := it.Change.(type) {
+	case policy.FileChange:
+		change = struct {
+			Type    string `json:"type"`
+			Path    string `json:"path"`
+			Delete  bool   `json:"delete,omitempty"`
+			Content string `json:"content,omitempty"`
+		}{"file", c.Path, c.Delete, string(c.Content)}
+	case policy.SettingChange:
+		change = struct {
+			Type string `json:"type"`
+			policy.SettingChange
+		}{"setting", c}
+	}
+	return json.Marshal(struct {
+		plain
+		Change any `json:"change,omitempty"`
+	}{plain(it), change})
+}
+
+// RepoPlan is the plan for one repo.
+type RepoPlan struct {
+	Repo   string   `json:"repo"`
+	Items  []Item   `json:"items,omitempty"`
+	Errors []string `json:"errors,omitempty"`
+}
+
+// Summary counts the plan.
+type Summary struct {
+	Repos             int            `json:"repos"`
+	ReposWithFindings int            `json:"repos_with_findings"`
+	Findings          int            `json:"findings"`
+	ByAction          map[Action]int `json:"by_action"`
+}
+
+// Plan is the output of `meles plan`.
+type Plan struct {
+	Version    int        `json:"version"`
+	ControlRef string     `json:"control_ref,omitempty"`
+	Summary    Summary    `json:"summary"`
+	Repos      []RepoPlan `json:"repos"`
+	Warnings   []string   `json:"warnings,omitempty"`
+}
+
+// Evaluate runs every matching instance against every repo. Pure.
+func Evaluate(insts []Instance, repos []*facts.Repo) Plan {
+	p := Plan{Version: 1, Summary: Summary{Repos: len(repos), ByAction: map[Action]int{}}}
+	for _, r := range repos {
+		rp := evaluateRepo(insts, r)
+		if len(rp.Items) > 0 || len(rp.Errors) > 0 {
+			p.Repos = append(p.Repos, rp)
+		}
+	}
+	slices.SortFunc(p.Repos, func(a, b RepoPlan) int { return cmp.Compare(a.Repo, b.Repo) })
+	p.recount()
+	return p
+}
+
+func (p *Plan) recount() {
+	p.Summary.ReposWithFindings, p.Summary.Findings = 0, 0
+	clear(p.Summary.ByAction)
+	for _, rp := range p.Repos {
+		if len(rp.Items) > 0 {
+			p.Summary.ReposWithFindings++
+		}
+		p.Summary.Findings += len(rp.Items)
+		for _, it := range rp.Items {
+			p.Summary.ByAction[it.Action]++
+		}
+	}
+}
+
+func evaluateRepo(insts []Instance, r *facts.Repo) RepoPlan {
+	rp := RepoPlan{Repo: r.FullName()}
+	byKind := map[string][]Instance{}
+	var kinds []string
+	for _, in := range insts {
+		if !selector.Match(in.Selector, r) {
+			continue
+		}
+		if _, seen := byKind[in.Spec.ID]; !seen {
+			kinds = append(kinds, in.Spec.ID)
+		}
+		byKind[in.Spec.ID] = append(byKind[in.Spec.ID], in)
+	}
+	for _, kind := range kinds {
+		matched := byKind[kind]
+		if len(matched) > 1 {
+			names := make([]string, len(matched))
+			for i, m := range matched {
+				names[i] = m.Name
+			}
+			rp.Errors = append(rp.Errors, fmt.Sprintf("matches %s; selectors for one kind must not overlap, skipped", strings.Join(names, ", ")))
+			continue
+		}
+		in := matched[0]
+		for _, f := range in.Policy.Evaluate(r) {
+			rp.Items = append(rp.Items, item(in, r, f))
+		}
+	}
+	slices.SortStableFunc(rp.Items, func(a, b Item) int {
+		return cmp.Or(cmp.Compare(a.Policy, b.Policy), cmp.Compare(a.Finding.Subject, b.Finding.Subject))
+	})
+	return rp
+}
+
+func item(in Instance, r *facts.Repo, f policy.Finding) Item {
+	it := Item{
+		Policy: in.Name, Finding: f, Key: f.Key(), Shape: f.Shape(),
+		Mode: in.Spec.Mode, OnClose: in.Spec.OnClose, Action: ActionCheck,
+	}
+	c, ok := in.Policy.Remediate(r, f)
+	if !ok {
+		return it
+	}
+	it.Change = c
+	if fc, ok := c.(policy.FileChange); ok && !fc.Delete {
+		it.Before = r.Files[fc.Path]
+	}
+	switch {
+	case in.Spec.Mode == config.Observe:
+		it.Action = ActionReport
+	case isFile(c):
+		it.Action = ActionPR
+	case in.Spec.Mode == config.Enforce:
+		it.Action = ActionApply
+	default:
+		it.Action = ActionReport
+		it.Note = "settings apply only with mode: enforce"
+	}
+	return it
+}
+
+func isFile(c policy.Change) bool {
+	_, ok := c.(policy.FileChange)
+	return ok
+}

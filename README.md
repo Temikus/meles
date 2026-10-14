@@ -23,9 +23,23 @@ go install github.com/temikus/meles/cmd/meles@latest
 
 ## Usage
 
+meles reads `meles.yml` from your control repo. See
+[examples/meles.yml](examples/meles.yml) for the full surface.
+
 ```sh
+meles validate -c meles.yml          # check the config, no API calls
+meles plan -c meles.yml              # what meles would change; never writes
+meles plan --owner my-org --json     # another owner, machine-readable
 meles version
 ```
+
+`plan` is the default command. The token comes from `GH_TOKEN`,
+`GITHUB_TOKEN`, or `gh auth token`. Responses are cached by ETag under
+your user cache directory, so repeat runs cost little rate limit.
+
+Implemented policies: `deps.updater`, `security.features`,
+`governance.files`. Other kinds in the example are accepted and skipped
+with a warning until their milestone lands.
 
 ## Development
 
@@ -38,7 +52,7 @@ just build              # bin/meles
 just test               # unit tests, race detector, coverage
 just lint
 just run version        # go run with arguments
-just test-integration   # real GitHub API, needs MELES_IT_REPO and a token
+just test-integration   # real GitHub API against a throwaway repo (default Temikus/meles-sandbox)
 ```
 
 ## License

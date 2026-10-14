@@ -17,9 +17,9 @@ build:
 test:
     go test -race -coverprofile=coverage.out ./...
 
-# Run integration tests against a real repo (needs MELES_IT_REPO and a token)
-test-integration:
-    MELES_INTEGRATION=1 go test -race -count=1 -run Integration ./...
+# Run integration tests against a real repo (token from GH_TOKEN or gh auth token)
+test-integration repo=env("MELES_IT_REPO", "Temikus/meles-sandbox"):
+    MELES_INTEGRATION=1 MELES_IT_REPO={{repo}} go test -race -count=1 -run Integration ./...
 
 # Lint with golangci-lint
 lint:

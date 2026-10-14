@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "control_ref": "abc123",
+  "summary": {
+    "repos": 2,
+    "repos_with_findings": 1,
+    "findings": 2,
+    "by_action": {
+      "pr": 1,
+      "report": 1
+    }
+  },
+  "repos": [
+    {
+      "repo": "acme/widget",
+      "items": [
+        {
+          "policy": "governance.files",
+          "finding": {
+            "kind": "governance.files",
+            "subject": "file:SECURITY.md",
+            "message": "SECURITY.md is missing",
+            "fix": "create"
+          },
+          "key": "governance.files/file:SECURITY.md",
+          "shape": "7873b5150ed03b60",
+          "mode": "pr",
+          "on_close": "accept",
+          "action": "pr",
+          "change": {
+            "type": "file",
+            "path": "SECURITY.md",
+            "content": "hi\n"
+          }
+        },
+        {
+          "policy": "security.features",
+          "finding": {
+            "kind": "security.features",
+            "subject": "setting:security.secret_scanning",
+            "message": "secret_scanning is off, want on",
+            "fix": "set"
+          },
+          "key": "security.features/setting:security.secret_scanning",
+          "shape": "f0e59b8ac64df87f",
+          "mode": "pr",
+          "on_close": "accept",
+          "action": "report",
+          "note": "settings apply only with mode: enforce",
+          "change": {
+            "type": "setting",
+            "setting": "security.secret_scanning",
+            "from": false,
+            "to": true
+          }
+        }
+      ]
+    },
+    {
+      "repo": "acme/broken",
+      "errors": [
+        "tree: 500"
+      ]
+    }
+  ]
+}

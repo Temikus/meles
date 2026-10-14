@@ -1,0 +1,6 @@
+REPO         POLICY             SUBJECT                           ACTION  MESSAGE
+acme/widget  governance.files   file:SECURITY.md                  pr      SECURITY.md is missing
+acme/widget  security.features  setting:security.secret_scanning  report  secret_scanning is off, want on (settings apply only with mode: enforce)
+error: acme/broken: tree: 500
+
+2 findings in 1 of 2 repos: 1 pr, 0 apply, 1 report, 0 check. Plan only, nothing changed.

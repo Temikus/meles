@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -58,7 +60,6 @@ func TestUsageErrors(t *testing.T) {
 		args []string
 		want string
 	}{
-		{"no command", nil, "Usage:"},
 		{"unknown command", []string{"frobnicate"}, `unknown command "frobnicate"`},
 		{"unknown flag", []string{"version", "--nope"}, "flag provided but not defined"},
 		{"extra args", []string{"version", "extra"}, "unexpected arguments"},
@@ -72,5 +73,45 @@ func TestUsageErrors(t *testing.T) {
 				t.Errorf("stderr %q does not contain %q", errOut, tc.want)
 			}
 		})
+	}
+}
+
+func TestValidateExamples(t *testing.T) {
+	code, out, errOut := run(t, "validate", "-c", "../../examples/meles.yml")
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut)
+	}
+	if !strings.Contains(out, "ok (3 policies active, 5 skipped)") {
+		t.Errorf("stdout = %q", out)
+	}
+	for _, kind := range []string{"governance.settings", "ci.shape[go]", "ci.shape[python]", "actions.pinning", "release.tooling"} {
+		if !strings.Contains(errOut, "policy "+kind+" is not implemented yet") {
+			t.Errorf("no skip warning for %s in %q", kind, errOut)
+		}
+	}
+}
+
+func TestValidateReportsErrors(t *testing.T) {
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "meles.yml")
+	body := "version: 1\nselectors: {all: {}}\npolicies:\n  - id: governance.files\n    on: all\n    with: {SECURITY.md: {template: nope.md}}\n  - id: made.up\n    on: all\n"
+	if err := os.WriteFile(cfg, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errOut := run(t, "validate", "-c", cfg)
+	if code != 1 {
+		t.Errorf("exit %d, want 1", code)
+	}
+	for _, want := range []string{"meles.yml:4: policy governance.files:", `meles.yml:7: unknown policy kind "made.up"`} {
+		if !strings.Contains(errOut, want) {
+			t.Errorf("stderr %q missing %q", errOut, want)
+		}
+	}
+}
+
+func TestPlanIsDefault(t *testing.T) {
+	code, _, errOut := run(t, "-c", "/nonexistent/meles.yml")
+	if code != 1 || !strings.Contains(errOut, "/nonexistent/meles.yml") {
+		t.Errorf("exit %d stderr %q: flags without a command should run plan", code, errOut)
 	}
 }
