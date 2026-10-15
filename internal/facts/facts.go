@@ -73,6 +73,9 @@ type PR struct {
 	Open   bool
 	Merged bool
 	Labels []string
+	// Noted: meles already commented on this closed PR. Read only for the
+	// newest PR, and only with Needs.Branch.
+	Noted bool
 }
 
 // Branch is the head commit of the housekeeping branch.

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -216,6 +217,21 @@ func TestCountsWrites(t *testing.T) {
 	_ = resp.Body.Close()
 	if s := tr.Stats(); s.Writes != 4 || s.GraphQL != 1 || s.Requests != 6 {
 		t.Errorf("stats = %+v, want 4 writes and 1 GraphQL query", s)
+	}
+}
+
+func TestScopes(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("X-OAuth-Scopes", "repo, workflow, read:org")
+	}))
+	defer ts.Close()
+	c, tr := newCached(t, t.TempDir(), "id")
+	if _, known := tr.Scopes(); known {
+		t.Error("scopes known before any response")
+	}
+	get(t, c, ts.URL+"/user")
+	if s, known := tr.Scopes(); !known || !slices.Equal(s, []string{"repo", "workflow", "read:org"}) {
+		t.Errorf("scopes = %v, %v", s, known)
 	}
 }
 

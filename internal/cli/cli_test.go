@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/temikus/meles/internal/buildinfo"
+	"github.com/temikus/meles/internal/facts"
 )
 
 func run(t *testing.T, args ...string) (int, string, string) {
@@ -113,5 +114,16 @@ func TestPlanIsDefault(t *testing.T) {
 	code, _, errOut := run(t, "-c", "/nonexistent/meles.yml")
 	if code != 1 || !strings.Contains(errOut, "/nonexistent/meles.yml") {
 		t.Errorf("exit %d stderr %q: flags without a command should run plan", code, errOut)
+	}
+}
+
+func TestFilterRepos(t *testing.T) {
+	metas := []facts.Meta{{Owner: "Temikus", Name: "meles"}, {Owner: "Temikus", Name: "meles-sandbox"}, {Owner: "acme", Name: "widget"}}
+	got := filterRepos(metas, []string{"temikus/meles-*", "acme/widget"})
+	if len(got) != 2 || got[0].Name != "meles-sandbox" || got[1].Name != "widget" {
+		t.Errorf("got %+v", got)
+	}
+	if len(filterRepos(metas, nil)) != 3 {
+		t.Error("no globs must keep every repo")
 	}
 }

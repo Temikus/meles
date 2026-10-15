@@ -14,6 +14,7 @@ const usage = `Usage: meles [command] [flags]
 
 Commands:
   plan      show what meles would change (default; never writes)
+  apply     make the changes: one PR per repo, settings in enforce mode
   validate  check meles.yml without calling GitHub
   version   print version information
 
@@ -29,6 +30,8 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "plan":
 		err = runPlan(ctx, args[1:], stdout, stderr)
+	case "apply":
+		err = runApply(ctx, args[1:], stdout, stderr)
 	case "validate":
 		err = runValidate(args[1:], stdout, stderr)
 	case "version":

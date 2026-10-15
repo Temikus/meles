@@ -28,6 +28,7 @@ type Transport struct {
 	RetryWait time.Duration
 
 	requests, notModified, uncacheable, graphQL, writes, rateUsed atomic.Int64
+	scopes                                                        atomic.Pointer[string]
 }
 
 // Stats counts what the transport did.
@@ -124,7 +125,26 @@ func (t *Transport) send(base http.RoundTripper, req *http.Request) (*http.Respo
 	}
 }
 
+// Scopes returns the OAuth scopes GitHub reported for the token. known is
+// false until a response arrives, and for tokens that do not report scopes,
+// such as App installation tokens.
+func (t *Transport) Scopes() (scopes []string, known bool) {
+	s := t.scopes.Load()
+	if s == nil {
+		return nil, false
+	}
+	for _, f := range strings.Split(*s, ",") {
+		if f = strings.TrimSpace(f); f != "" {
+			scopes = append(scopes, f)
+		}
+	}
+	return scopes, true
+}
+
 func (t *Transport) noteRate(resp *http.Response) {
+	if v, ok := resp.Header["X-Oauth-Scopes"]; ok && len(v) > 0 {
+		t.scopes.Store(&v[0])
+	}
 	if r := resp.Header.Get("X-RateLimit-Resource"); r != "" && r != "core" {
 		return
 	}

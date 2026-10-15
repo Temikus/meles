@@ -207,3 +207,21 @@ func TestAcceptedCloses(t *testing.T) {
 		})
 	}
 }
+
+func TestBlock(t *testing.T) {
+	wf := policy.FileChange{Path: ".github/workflows/ci.yml", Content: []byte("x")}
+	finds := []policy.Finding{{Kind: "k", Subject: "s", Message: "m", Fix: policy.FixCreate}}
+	insts := []Instance{
+		inst("a", "a", config.PR, config.Selector{}, stub{"a", finds, wf}),
+		inst("b", "b", config.PR, config.Selector{}, stub{"b", finds, policy.FileChange{Path: "README.md"}}),
+	}
+	p := Evaluate(insts, []*facts.Repo{policytest.Repo(nil)}, today)
+	p.Block(IsWorkflow, "token lacks the workflow scope")
+	items := p.Repos[0].Items
+	if items[0].Invalid != "token lacks the workflow scope" || items[1].Invalid != "" {
+		t.Errorf("items = %+v", items)
+	}
+	if !IsRenovateConfig(".github/renovate.json5") || !IsRenovateConfig(".renovaterc") || IsRenovateConfig("package.json") {
+		t.Error("IsRenovateConfig")
+	}
+}
