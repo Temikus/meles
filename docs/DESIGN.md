@@ -75,7 +75,7 @@ entry, so `reopen` on the security policy does not pin CODEOWNERS too:
 
 | `on_close` | behaviour                                                        |
 |------------|------------------------------------------------------------------|
-| `accept`   | the close is a quiet exemption for that finding. meles posts one comment saying how to make it permanent in `.meles.yml`, and only re-opens if the drift changes shape (new file, new constraint). Default. |
+| `accept`   | the close is a quiet exemption for that finding for one year. meles posts one comment saying how to record it in `.meles.yml`, and re-opens early if the drift changes shape (new file, new constraint). Default. |
 | `reopen`   | the finding is re-planned on the next run and the PR comes back. For policies that must not be waved away, such as security and actions pinning. |
 
 One PR can carry findings from policies with different `on_close`
@@ -86,8 +86,10 @@ findings become exemptions and the single comment lists them. The
 meles keeps no state. Each PR body ends with a hidden marker listing the
 key, shape and `on_close` of every finding it carries. A finding is
 accepted while a closed, unmerged meles PR lists the same key and shape,
-and the policy still says `accept`. A PR meles closes itself is marked
-`closed_by: meles` and never counts.
+the policy still says `accept`, and the close is less than a year old.
+Like a `.meles.yml` exemption, it cannot hide a finding for ever. Reopening
+the PR, or setting `on_close: reopen`, undoes it early. A PR meles closes
+itself is marked `closed_by: meles` and never counts.
 
 ## Policy packs
 
@@ -219,6 +221,14 @@ Found while building milestone 2 (verified against the live API):
 - `GET commits/<sha>` reports each changed file's blob SHA, which equals
   `git hash-object` of the content, so "is the branch current?" needs no
   content download.
+
+Found while building milestone 3:
+
+- `vulnerability-alerts` reads flap between the old and new value for
+  several seconds after a write. A run straight after a toggle may see the
+  old state and write again; the next run settles it.
+- `apply` asks for approval like `tofu apply`: only `yes` counts, and
+  `--yes` skips the prompt for CI. A stray `--repo` cannot write unseen.
 
 ## Decisions
 

@@ -170,7 +170,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			"repo errors block writes",
-			plan.RepoPlan{Repo: "acme/widget", Items: []plan.Item{hello}, Errors: []string{".meles.yml: line 1: reason is required"}},
+			plan.RepoPlan{Repo: "acme/widget", Items: []plan.Item{hello, alerts}, Errors: []string{".meles.yml: line 1: reason is required"}},
 			func() *facts.Repo { return current() },
 			func(t *testing.T, d Decision) { wantBlocked(t, d, ".meles.yml") },
 		},
@@ -222,6 +222,64 @@ func TestDecideCommentsOnceOnAcceptedClose(t *testing.T) {
 	}
 	if d := Decide(p, closed(true), opts); d.Comment != nil {
 		t.Errorf("commented twice: %+v", d.Comment)
+	}
+}
+
+var alerts = settingItem("dependabot_alerts", config.Enforce, plan.ActionApply)
+
+func settingItem(name string, mode config.Mode, a plan.Action) plan.Item {
+	f := policy.Finding{Kind: "security.features", Subject: "setting:security." + name, Message: name + " is off, want on", Fix: policy.FixSet}
+	return plan.Item{
+		Policy: "security.features", Finding: f, Key: f.Key(), Shape: f.Shape(), Mode: mode, Action: a,
+		Change: policy.SettingChange{Setting: "security." + name, From: false, To: true},
+	}
+}
+
+func TestDecideSettings(t *testing.T) {
+	report := settingItem("secret_scanning", config.PR, plan.ActionReport)
+	d := Decide(rp(alerts, report), policytest.Repo(nil), opts)
+	if len(d.Settings) != 1 || d.Settings[0].Setting != "security.dependabot_alerts" || !d.Writes() {
+		t.Errorf("want only the enforce setting applied: %+v", d)
+	}
+	if want := []string{"set security.dependabot_alerts to true"}; !slices.Equal(d.Steps(), want) {
+		t.Errorf("steps = %q, want %q", d.Steps(), want)
+	}
+
+	// A PR problem does not hold back settings, which never touch the branch.
+	r := current(hello)
+	r.Housekeeping.Branch.Message = "fix: tweak by hand"
+	if d := Decide(rp(hello, alerts), r, opts); d.Kind != Blocked || len(d.Settings) != 1 || !d.Writes() {
+		t.Errorf("blocked PR must still apply settings: %+v", d)
+	}
+	both := Decide(rp(hello, alerts), policytest.Repo(nil), opts)
+	ds := Limit([]Decision{both, both}, 1)
+	if ds[1].Kind != Deferred || len(ds[1].Settings) != 1 || !ds[1].Writes() {
+		t.Errorf("deferred PR must still apply settings: %+v", ds[1])
+	}
+}
+
+func TestSteps(t *testing.T) {
+	first := policytest.Repo(nil)
+	first.Housekeeping = facts.Housekeeping{BaseSHA: "base", BaseTree: "tree"}
+	closed := current(hello)
+	closed.Housekeeping.PRs[0].Open = false
+	for _, tc := range []struct {
+		name string
+		d    Decision
+		want []string
+	}{
+		{"first run", Decide(rp(hello, bye), first, opts), []string{"push 2 file(s) to meles/housekeeping", "open a PR"}},
+		{"second file", Decide(rp(hello, bye), current(hello), opts), []string{"push 2 file(s) to meles/housekeeping", "update #12"}},
+		{"labels only", Decision{Kind: Write, PR: 12, AddLabels: []string{"x"}}, []string{"label #12 x"}},
+		{"close", Decide(rp(), current(hello), opts), []string{"close #12: nothing left to change"}},
+		{"accept note", Decide(rp(withAction(hello, plan.ActionSkip)), closed, opts), []string{"comment on #12 about the accepted close"}},
+		{"nothing", Decide(rp(hello), current(hello), opts), nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.d.Steps(); !slices.Equal(got, tc.want) {
+				t.Errorf("steps = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 

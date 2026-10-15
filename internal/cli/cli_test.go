@@ -16,7 +16,7 @@ import (
 func run(t *testing.T, args ...string) (int, string, string) {
 	t.Helper()
 	var out, errOut bytes.Buffer
-	code := Run(context.Background(), args, &out, &errOut)
+	code := Run(context.Background(), args, strings.NewReader(""), &out, &errOut)
 	return code, out.String(), errOut.String()
 }
 
@@ -125,5 +125,28 @@ func TestFilterRepos(t *testing.T) {
 	}
 	if len(filterRepos(metas, nil)) != 3 {
 		t.Error("no globs must keep every repo")
+	}
+}
+
+func TestApprove(t *testing.T) {
+	for _, tc := range []struct {
+		in   string
+		ok   bool
+		fail bool
+	}{
+		{"yes\n", true, false},
+		{"  yes  \n", true, false},
+		{"y\n", false, false},
+		{"YES\n", false, false},
+		{"", false, true},
+	} {
+		var out bytes.Buffer
+		ok, err := approve(strings.NewReader(tc.in), &out)
+		if ok != tc.ok || (err != nil) != tc.fail {
+			t.Errorf("approve(%q) = %v, %v", tc.in, ok, err)
+		}
+		if !strings.Contains(out.String(), "Only 'yes' will be accepted to approve.") {
+			t.Errorf("prompt = %q", out.String())
+		}
 	}
 }

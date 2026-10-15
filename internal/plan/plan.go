@@ -197,9 +197,15 @@ func evaluateRepo(insts []Instance, r *facts.Repo, today time.Time) RepoPlan {
 			case expired != nil:
 				it.Note = joinNote(it.Note, "exemption expired "+expired.Until.Format(time.DateOnly))
 			}
-			if n, ok := accepted[it.Key+"\x00"+it.Shape]; ok && it.Action != ActionSkip && it.OnClose == config.Accept {
-				it.Action = ActionSkip
-				it.Note = fmt.Sprintf("closed in #%d (accept)", n)
+			if pr, ok := accepted[it.Key+"\x00"+it.Shape]; ok && it.Action != ActionSkip && it.OnClose == config.Accept {
+				// An accept holds for a year, so like an exemption it cannot hide a finding for ever.
+				until := day(pr.ClosedAt).AddDate(1, 0, 0)
+				if day(today).After(until) {
+					it.Note = joinNote(it.Note, fmt.Sprintf("accept from #%d expired %s", pr.Number, until.Format(time.DateOnly)))
+				} else {
+					it.Action = ActionSkip
+					it.Note = fmt.Sprintf("closed in #%d (accept until %s)", pr.Number, until.Format(time.DateOnly))
+				}
 			}
 			rp.Items = append(rp.Items, it)
 		}
@@ -212,8 +218,8 @@ func evaluateRepo(insts []Instance, r *facts.Repo, today time.Time) RepoPlan {
 
 // acceptedCloses maps key and shape to the newest meles PR a human closed
 // without merging while it carried that finding.
-func acceptedCloses(prs []facts.PR) map[string]int {
-	out := map[string]int{}
+func acceptedCloses(prs []facts.PR) map[string]facts.PR {
+	out := map[string]facts.PR{}
 	for _, pr := range prs {
 		if pr.Open || pr.Merged {
 			continue
@@ -225,11 +231,17 @@ func acceptedCloses(prs []facts.PR) map[string]int {
 		for _, it := range m.Items {
 			k := it.Key + "\x00" + it.Shape
 			if _, seen := out[k]; !seen {
-				out[k] = pr.Number
+				out[k] = pr
 			}
 		}
 	}
 	return out
+}
+
+// day is t's UTC calendar date.
+func day(t time.Time) time.Time {
+	t = t.UTC()
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
 }
 
 func item(in Instance, r *facts.Repo, f policy.Finding) Item {

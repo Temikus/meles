@@ -220,7 +220,7 @@ func (c *Collector) prs(ctx context.Context, r *Repo) error {
 			return err
 		}
 		for _, p := range page {
-			pr := PR{Number: p.GetNumber(), Title: p.GetTitle(), Body: p.GetBody(), Open: p.GetState() == "open", Merged: p.MergedAt != nil}
+			pr := PR{Number: p.GetNumber(), Title: p.GetTitle(), Body: p.GetBody(), Open: p.GetState() == "open", Merged: p.MergedAt != nil, ClosedAt: p.GetClosedAt().Time}
 			for _, l := range p.Labels {
 				pr.Labels = append(pr.Labels, l.GetName())
 			}
