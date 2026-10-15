@@ -2,7 +2,6 @@
 
 [![CI](https://github.com/temikus/meles/actions/workflows/ci.yml/badge.svg)](https://github.com/temikus/meles/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/temikus/meles)](LICENSE)
-[![codecov](https://codecov.io/gh/temikus/meles/graph/badge.svg)](https://codecov.io/gh/temikus/meles)
 
 Badgers keep the sett tidy. meles keeps GitHub repos tidy.
 
