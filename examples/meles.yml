@@ -1,4 +1,4 @@
-# Lives in <owner>/meles (control repo). Paths are relative to it.
+# Lives in the control repo (<owner>/.github or <owner>/.meles). Paths are relative to it.
 version: 1
 
 defaults:

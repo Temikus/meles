@@ -19,8 +19,9 @@ Goal: "install it, write policies, it works" with nothing to host.
 1. A GitHub App gives identity and scoped permissions. Install it on the
    account or org. (App Manifest flow lets a new user create their own
    App in one click; no shared multi-tenant service needed.)
-2. A control repo (`<owner>/meles` or the `.github` repo) holds
-   `meles.yml`, templates and shapes.
+2. A control repo holds `meles.yml`, templates and shapes: the owner's
+   `.github` repo, or a dedicated `.meles` repo to keep it separate. meles
+   never assumes `<owner>/meles`.
 3. A workflow in the control repo runs on cron + `workflow_dispatch`,
    mints an installation token with `actions/create-github-app-token`,
    and runs the `meles` binary.
