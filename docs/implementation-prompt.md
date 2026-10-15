@@ -21,7 +21,7 @@ the next milestone until I have said the current one is good.
 Constraints:
 
 - Go, single module, single binary. Use `go-github` for the API and
-  `ghinstallation` for App auth. No frameworks beyond cobra for the CLI.
+  `ghinstallation` for App auth. No framework.
 - The policy interface is the heart of it. A policy evaluates facts into
   findings with no I/O, then turns a finding into a `FileChange` or a
   `SettingChange`. Keep evaluation pure so it is table-testable.
