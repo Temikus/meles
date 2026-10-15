@@ -20,6 +20,10 @@ const Trailer = "Meles-Housekeeping: v1"
 // human accepting the drift.
 const ClosedByMeles = "meles"
 
+// NoteMarker starts the comment meles leaves on a PR a human closed, so it
+// is posted once.
+const NoteMarker = "<!-- meles:closed-note -->"
+
 const (
 	markerOpen  = "<!-- meles:v1 "
 	markerClose = " -->"

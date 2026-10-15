@@ -29,8 +29,14 @@ meles reads `meles.yml` from your control repo. See
 meles validate -c meles.yml          # check the config, no API calls
 meles plan -c meles.yml              # what meles would change; never writes
 meles plan --owner my-org --json     # another owner, machine-readable
+meles apply -c meles.yml --repo 'me/sandbox'   # make the changes, here for one repo
 meles version
 ```
+
+`apply` puts every file change for a repo into one PR on
+`meles/housekeeping` and updates it in place. A second run with no drift
+makes no writes. A repo opts out in its own `.meles.yml`; see
+[examples/.meles.yml](examples/.meles.yml).
 
 `plan` is the default command. The token comes from `GH_TOKEN`,
 `GITHUB_TOKEN`, or `gh auth token`. Responses are cached by ETag under

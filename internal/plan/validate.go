@@ -27,11 +27,8 @@ func RenovateValidator() (Validator, bool) {
 		return Validator{}, false
 	}
 	return Validator{
-		Name: "renovate-config-validator",
-		Match: func(p string) bool {
-			b := path.Base(p)
-			return strings.HasPrefix(b, "renovate.json") || strings.HasPrefix(b, ".renovaterc")
-		},
+		Name:  "renovate-config-validator",
+		Match: IsRenovateConfig,
 		Check: func(ctx context.Context, p string, content []byte) error {
 			dir, err := os.MkdirTemp("", "meles-renovate-*")
 			if err != nil {
@@ -55,6 +52,29 @@ func RenovateValidator() (Validator, bool) {
 			return fmt.Errorf("%s", strings.Join(keep, "\n"))
 		},
 	}, true
+}
+
+// IsRenovateConfig reports whether p is a Renovate config file.
+func IsRenovateConfig(p string) bool {
+	b := path.Base(p)
+	return strings.HasPrefix(b, "renovate.json") || strings.HasPrefix(b, ".renovaterc")
+}
+
+// IsWorkflow reports whether p is a GitHub Actions workflow. Writing one needs
+// the workflow scope on a PAT, or workflows: write on an App.
+func IsWorkflow(p string) bool { return strings.HasPrefix(p, ".github/workflows/") }
+
+// Block marks file changes whose path matches as invalid, so apply leaves
+// them out of the PR.
+func (p *Plan) Block(match func(path string) bool, reason string) {
+	for i := range p.Repos {
+		for j := range p.Repos[i].Items {
+			it := &p.Repos[i].Items[j]
+			if fc, ok := it.Change.(policy.FileChange); ok && it.Invalid == "" && match(fc.Path) {
+				it.Invalid = reason
+			}
+		}
+	}
 }
 
 // Validate runs validators over file changes and marks failures Invalid.

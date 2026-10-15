@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/google/go-github/v92/github"
 
 	"github.com/temikus/meles/internal/ghclient"
+	"github.com/temikus/meles/internal/housekeeping"
 )
 
 // Collector fetches a repo snapshot.
@@ -239,6 +241,9 @@ func (c *Collector) branch(ctx context.Context, r *Repo) error {
 	if err != nil {
 		return err
 	}
+	if err := c.noted(ctx, r); err != nil {
+		return err
+	}
 	r.Housekeeping.BaseSHA = base.GetCommit().GetSHA()
 	r.Housekeeping.BaseTree = base.GetCommit().GetCommit().GetTree().GetSHA()
 
@@ -272,6 +277,35 @@ func (c *Collector) branch(ctx context.Context, r *Repo) error {
 		r.Housekeeping.Branch = b
 	}
 	return nil
+}
+
+// noted reads whether meles already commented on the newest PR, when a human
+// closed it. Older PRs were handled by earlier runs.
+func (c *Collector) noted(ctx context.Context, r *Repo) error {
+	prs := r.Housekeeping.PRs
+	if len(prs) == 0 || prs[0].Open || prs[0].Merged {
+		return nil
+	}
+	if m, ok := housekeeping.Decode(prs[0].Body); !ok || m.ClosedBy != "" {
+		return nil
+	}
+	opts := &github.IssueListCommentsOptions{ListOptions: github.ListOptions{PerPage: 100}}
+	for {
+		page, resp, err := c.GH.Issues.ListComments(ctx, r.Owner, r.Name, prs[0].Number, opts)
+		if err != nil {
+			return err
+		}
+		for _, cm := range page {
+			if strings.Contains(cm.GetBody(), housekeeping.NoteMarker) {
+				prs[0].Noted = true
+				return nil
+			}
+		}
+		if resp.NextPage == 0 {
+			return nil
+		}
+		opts.Page = resp.NextPage
+	}
 }
 
 func statusTri(s string) Tri {

@@ -48,7 +48,10 @@ func TestRunCollectsOnlyWhatMatches(t *testing.T) {
 		{Owner: "o", Name: "broken", Visibility: "private"},
 	}
 	col := &recorder{asked: map[string]facts.Needs{}}
-	p := Run(context.Background(), insts, metas, col, 3, today)
+	p, repos := Run(context.Background(), insts, metas, col, RunOptions{Workers: 3, Today: today, Needs: facts.Needs{Branch: true}})
+	if len(repos) != 2 || repos[0].Name != "priv" || !col.asked["pub"].Branch {
+		t.Errorf("repos = %v; want priv and pub, sorted, with the extra needs", repos)
+	}
 
 	if _, ok := col.asked["old"]; ok {
 		t.Error("archived repo matched no selector and must not be fetched")
