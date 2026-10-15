@@ -52,8 +52,8 @@ type Defaults struct {
 type PRDefaults struct {
 	Branch    string   `yaml:"branch"`
 	Labels    []string `yaml:"labels"`
-	MaxPerRun int      `yaml:"max_per_run"`
-	OnClose   OnClose  `yaml:"on_close"`
+	MaxPerRun int      `yaml:"maxPerRun"`
+	OnClose   OnClose  `yaml:"onClose"`
 }
 
 // Selector picks repos. Fields combine with AND, list items with OR.
@@ -74,7 +74,7 @@ type PolicySpec struct {
 	ID      string    `yaml:"id"`
 	On      string    `yaml:"on"`
 	Mode    Mode      `yaml:"mode"`
-	OnClose OnClose   `yaml:"on_close"`
+	OnClose OnClose   `yaml:"onClose"`
 	With    yaml.Node `yaml:"with"`
 
 	Line int `yaml:"-"`
@@ -176,7 +176,7 @@ func (c *Config) Validate() error {
 		add(c.line, "defaults: invalid mode %q", c.Defaults.Mode)
 	}
 	if !c.Defaults.PR.OnClose.Valid() {
-		add(c.line, "defaults: invalid on_close %q", c.Defaults.PR.OnClose)
+		add(c.line, "defaults: invalid onClose %q", c.Defaults.PR.OnClose)
 	}
 	for name, s := range c.Selectors {
 		switch s.Visibility {
@@ -205,7 +205,7 @@ func (c *Config) Validate() error {
 			add(p.Line, "policy %s: invalid mode %q", p.ID, p.Mode)
 		}
 		if p.OnClose != "" && !p.OnClose.Valid() {
-			add(p.Line, "policy %s: invalid on_close %q", p.ID, p.OnClose)
+			add(p.Line, "policy %s: invalid onClose %q", p.ID, p.OnClose)
 		}
 		k := [2]string{p.ID, p.On}
 		if first, dup := seen[k]; dup {

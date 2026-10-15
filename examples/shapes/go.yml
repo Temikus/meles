@@ -13,5 +13,5 @@ workflows:
 # SHA pinning is the actions.pinning policy, not a shape constraint.
 constraints:
   permissions: required
-  timeout_minutes: required
+  timeoutMinutes: required
   concurrency: required

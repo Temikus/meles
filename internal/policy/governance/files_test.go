@@ -59,7 +59,7 @@ func TestFilesEvaluate(t *testing.T) {
 }
 
 func TestFilesOnClosePerEntry(t *testing.T) {
-	got := newFiles(t, "{.editorconfig: {template: templates/editorconfig, on_close: reopen}}").Evaluate(policytest.Repo(nil))
+	got := newFiles(t, "{.editorconfig: {template: templates/editorconfig, onClose: reopen}}").Evaluate(policytest.Repo(nil))
 	if len(got) != 1 || got[0].OnClose != config.Reopen {
 		t.Errorf("findings = %+v", got)
 	}
@@ -92,7 +92,7 @@ func TestFilesFactoryErrors(t *testing.T) {
 		{"unknown key", "{.editorconfig: {templte: x}}"},
 		{"badges belong to governance.standards", "{README.md: {template: templates/LICENSE, badges: [ci]}}"},
 		{"absolute path", "{/etc/passwd: {template: templates/LICENSE}}"},
-		{"bad on_close", "{.editorconfig: {template: templates/editorconfig, on_close: never}}"},
+		{"bad onClose", "{.editorconfig: {template: templates/editorconfig, onClose: never}}"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, err := NewFiles(policytest.With(t, tc.with), ctl); err == nil {

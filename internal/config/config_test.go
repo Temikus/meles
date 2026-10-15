@@ -47,6 +47,7 @@ func TestLoadErrors(t *testing.T) {
 		{"unknown top-level key", "version: 1\nbogus: 1\n", "meles.yml:2: unknown field \"bogus\""},
 		{"unknown policy key", "version: 1\nselectors: {all: {}}\npolicies:\n  - id: x\n    on: all\n    bogus: {}\n", "meles.yml:6: unknown field \"bogus\""},
 		{"unknown selector key", "version: 1\nselectors:\n  all: {archive: false}\n", "meles.yml:3: unknown field \"archive\""},
+		{"snake_case key", "version: 1\ndefaults:\n  pr: {on_close: accept}\n", "meles.yml:3: unknown field \"on_close\"; did you mean \"onClose\"?"},
 		{"bad type", "version: one\n", "meles.yml:1:"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -67,8 +68,8 @@ func TestValidate(t *testing.T) {
 		{"missing version", "selectors: {}\n", []string{"unsupported version 0"}},
 		{
 			"bad enums",
-			"version: 1\ndefaults: {mode: yolo, pr: {on_close: maybe}}\n",
-			[]string{`invalid mode "yolo"`, `invalid on_close "maybe"`},
+			"version: 1\ndefaults: {mode: yolo, pr: {onClose: maybe}}\n",
+			[]string{`invalid mode "yolo"`, `invalid onClose "maybe"`},
 		},
 		{
 			"unknown selector and missing id",

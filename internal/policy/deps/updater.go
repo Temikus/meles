@@ -38,7 +38,7 @@ const (
 type with struct {
 	Prefer     string   `yaml:"prefer"`
 	Extends    []string `yaml:"extends"`
-	ForbidBoth bool     `yaml:"forbid_both"`
+	ForbidBoth bool     `yaml:"forbidBoth"`
 }
 
 type updater struct{ w with }

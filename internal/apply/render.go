@@ -20,7 +20,7 @@ const Title = "chore(meles): housekeeping"
 func body(items []plan.Item, controlRef string) string {
 	var b strings.Builder
 	b.WriteString("meles keeps this repo in line with the shared config in the control repo. ")
-	b.WriteString("Merge to take the changes. If you close this PR instead, each finding's `on_close` decides what happens: ")
+	b.WriteString("Merge to take the changes. If you close this PR instead, each finding's `onClose` decides what happens: ")
 	b.WriteString("`accept` findings are left alone, `reopen` findings come back on the next run.\n")
 	last := ""
 	for _, it := range items {
@@ -78,7 +78,7 @@ func closedBody(old string) string {
 func acceptBody(items []plan.Item, today time.Time) string {
 	var b strings.Builder
 	b.WriteString(housekeeping.NoteMarker + "\n")
-	b.WriteString("Closed without merging, so meles leaves these findings alone (`on_close: accept`). ")
+	b.WriteString("Closed without merging, so meles leaves these findings alone (`onClose: accept`). ")
 	b.WriteString("They come back in a year, or sooner if the drift changes shape.\n\n")
 	b.WriteString("To record why, add this to `.meles.yml` in this repo:\n\n```yaml\nexempt:\n")
 	until := today.AddDate(1, 0, 0).Format(time.DateOnly)

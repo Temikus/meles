@@ -36,7 +36,7 @@ func TriOf(b bool) Tri {
 type Meta struct {
 	Owner         string   `json:"owner"`
 	Name          string   `json:"name"`
-	DefaultBranch string   `json:"default_branch"`
+	DefaultBranch string   `json:"defaultBranch"`
 	Visibility    string   `json:"visibility"`
 	Language      string   `json:"language,omitempty"`
 	Topics        []string `json:"topics,omitempty"`
@@ -50,18 +50,18 @@ func (m Meta) FullName() string { return m.Owner + "/" + m.Name }
 
 // Security holds the security feature toggles.
 type Security struct {
-	SecretScanning       Tri `json:"secret_scanning"`
-	PushProtection       Tri `json:"push_protection"`
-	DependabotAlerts     Tri `json:"dependabot_alerts"`
-	PrivateVulnReporting Tri `json:"private_vuln_reporting"`
+	SecretScanning       Tri `json:"secretScanning"`
+	PushProtection       Tri `json:"pushProtection"`
+	DependabotAlerts     Tri `json:"dependabotAlerts"`
+	PrivateVulnReporting Tri `json:"privateVulnReporting"`
 }
 
 // Standards is what GitHub reports for the repo, wherever the file lives and
 // including files inherited from the owner's public .github repo.
 type Standards struct {
 	License        bool `json:"license"`
-	SecurityPolicy bool `json:"security_policy"`
-	CodeOfConduct  bool `json:"code_of_conduct"`
+	SecurityPolicy bool `json:"securityPolicy"`
+	CodeOfConduct  bool `json:"codeOfConduct"`
 	Contributing   bool `json:"contributing"`
 	Codeowners     bool `json:"codeowners"`
 	// Readme is the path of the README GitHub displays, "" if none.
@@ -105,7 +105,7 @@ type Repo struct {
 	Meta
 	// Tree maps every path on the default branch to its blob SHA.
 	Tree          map[string]string `json:"-"`
-	TreeTruncated bool              `json:"tree_truncated,omitempty"`
+	TreeTruncated bool              `json:"treeTruncated,omitempty"`
 	// Files holds content for needed paths that exist.
 	Files     map[string][]byte `json:"-"`
 	Security  Security          `json:"security"`

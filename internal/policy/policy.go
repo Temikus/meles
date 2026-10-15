@@ -41,14 +41,14 @@ const (
 // Finding is one piece of drift in one repo.
 type Finding struct {
 	Kind    string `json:"kind"`
-	Subject string `json:"subject"` // "file:SECURITY.md" or "setting:security.secret_scanning"
+	Subject string `json:"subject"` // "file:SECURITY.md" or "setting:security.secretScanning"
 	Message string `json:"message"`
 	Fix     Fix    `json:"fix,omitempty"`
-	// OnClose overrides the policy's on_close for this finding; empty keeps it.
-	OnClose config.OnClose `json:"on_close,omitempty"`
+	// OnClose overrides the policy's onClose for this finding; empty keeps it.
+	OnClose config.OnClose `json:"onClose,omitempty"`
 }
 
-// Key identifies the finding across runs; exemptions and on_close use it.
+// Key identifies the finding across runs; exemptions and onClose use it.
 func (f Finding) Key() string { return f.Kind + "/" + f.Subject }
 
 // Shape changes only when the drift changes shape (new subject, different

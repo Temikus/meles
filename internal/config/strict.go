@@ -46,7 +46,11 @@ func checkKeys(n *yaml.Node, t reflect.Type) error {
 			k := n.Content[i]
 			f, ok := fields[k.Value]
 			if !ok {
-				return &posError{line: k.Line, msg: fmt.Sprintf("unknown field %q", k.Value)}
+				msg := fmt.Sprintf("unknown field %q", k.Value)
+				if c := camel(k.Value); c != k.Value && fields[c] != nil {
+					msg += fmt.Sprintf("; did you mean %q?", c)
+				}
+				return &posError{line: k.Line, msg: msg}
 			}
 			if err := checkKeys(n.Content[i+1], f); err != nil {
 				return err
@@ -70,6 +74,17 @@ func checkKeys(n *yaml.Node, t reflect.Type) error {
 		}
 	}
 	return nil
+}
+
+// camel turns snake_case into camelCase, the spelling every meles key uses.
+func camel(s string) string {
+	parts := strings.Split(s, "_")
+	for i := 1; i < len(parts); i++ {
+		if parts[i] != "" {
+			parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
+		}
+	}
+	return strings.Join(parts, "")
 }
 
 func yamlFields(t reflect.Type) map[string]reflect.Type {

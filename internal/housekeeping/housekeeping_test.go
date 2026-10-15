@@ -10,7 +10,7 @@ import (
 func TestMarkerRoundTrip(t *testing.T) {
 	m := Marker{Items: []Item{
 		{Key: "governance.standards/codeowners", Shape: "9e28dd715a37769d", OnClose: config.Accept},
-		{Key: "governance.standards/security_policy", Shape: "1b2c", OnClose: config.Reopen},
+		{Key: "governance.standards/securityPolicy", Shape: "1b2c", OnClose: config.Reopen},
 	}}
 	body := "## meles housekeeping\n\nHuman text, maybe edited.\n\n" + m.Encode() + "\n"
 	got, ok := Decode(body)
