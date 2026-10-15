@@ -1,7 +1,10 @@
 // Package facts holds the per-repo snapshot that policies evaluate.
 package facts
 
-import "slices"
+import (
+	"slices"
+	"time"
+)
 
 // Tri is a fact that may be unreadable.
 type Tri uint8
@@ -72,7 +75,9 @@ type PR struct {
 	Body   string
 	Open   bool
 	Merged bool
-	Labels []string
+	// ClosedAt is zero while the PR is open.
+	ClosedAt time.Time
+	Labels   []string
 	// Noted: meles already commented on this closed PR. Read only for the
 	// newest PR, and only with Needs.Branch.
 	Noted bool

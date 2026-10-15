@@ -22,7 +22,7 @@ Run "meles <command> -h" for flags.
 `
 
 // Run executes the subcommand named in args and returns the process exit code.
-func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") && args[0] != "-h" && args[0] != "--help" {
 		args = append([]string{"plan"}, args...)
 	}
@@ -31,7 +31,7 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	case "plan":
 		err = runPlan(ctx, args[1:], stdout, stderr)
 	case "apply":
-		err = runApply(ctx, args[1:], stdout, stderr)
+		err = runApply(ctx, args[1:], stdin, stdout, stderr)
 	case "validate":
 		err = runValidate(args[1:], stdout, stderr)
 	case "version":

@@ -52,7 +52,8 @@ type Finding struct {
 func (f Finding) Key() string { return f.Kind + "/" + f.Subject }
 
 // Shape changes only when the drift changes shape (new subject, different
-// fix), not when content changes. on_close=accept re-opens only on a new shape.
+// fix), not when content changes. An accepted close holds until the shape
+// changes or a year passes.
 func (f Finding) Shape() string {
 	h := sha256.Sum256([]byte(f.Kind + "\x00" + f.Subject + "\x00" + string(f.Fix)))
 	return hex.EncodeToString(h[:8])

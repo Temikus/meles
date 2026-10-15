@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/google/go-github/v92/github"
+
+	"github.com/temikus/meles/internal/policy"
 )
 
 // Executor makes a Decision's writes, in order, one repo at a time.
@@ -23,6 +25,15 @@ func (e *Executor) Execute(ctx context.Context, d Decision) ([]string, error) {
 	}
 	r := d.Repo
 	var done []string
+	for _, s := range d.Settings {
+		if err := e.set(ctx, r.Owner, r.Name, s); err != nil {
+			return done, fmt.Errorf("set %s: %w", s.Setting, err)
+		}
+		done = append(done, fmt.Sprintf("set %s to %v", s.Setting, s.To))
+	}
+	if !d.prWrites() {
+		return done, nil
+	}
 	if d.Comment != nil {
 		if _, _, err := e.GH.Issues.CreateComment(ctx, r.Owner, r.Name, d.Comment.PR, github.IssueCommentRequest{Body: d.Comment.Body}); err != nil {
 			return done, fmt.Errorf("comment on #%d: %w", d.Comment.PR, err)
@@ -79,6 +90,44 @@ func (e *Executor) Execute(ctx context.Context, d Decision) ([]string, error) {
 		}
 	}
 	return done, nil
+}
+
+// set makes one setting change with the one call that owns it.
+func (e *Executor) set(ctx context.Context, owner, name string, s policy.SettingChange) error {
+	on, ok := s.To.(bool)
+	if !ok {
+		return fmt.Errorf("want a bool, got %T", s.To)
+	}
+	status := "disabled"
+	if on {
+		status = "enabled"
+	}
+	var err error
+	switch s.Setting {
+	case "security.secret_scanning":
+		_, _, err = e.GH.Repositories.Edit(ctx, owner, name, &github.Repository{
+			SecurityAndAnalysis: &github.SecurityAndAnalysis{SecretScanning: &github.SecretScanning{Status: &status}},
+		})
+	case "security.push_protection":
+		_, _, err = e.GH.Repositories.Edit(ctx, owner, name, &github.Repository{
+			SecurityAndAnalysis: &github.SecurityAndAnalysis{SecretScanningPushProtection: &github.SecretScanningPushProtection{Status: &status}},
+		})
+	case "security.dependabot_alerts":
+		if on {
+			_, err = e.GH.Repositories.EnableVulnerabilityAlerts(ctx, owner, name)
+		} else {
+			_, err = e.GH.Repositories.DisableVulnerabilityAlerts(ctx, owner, name)
+		}
+	case "security.private_vuln_reporting":
+		if on {
+			_, err = e.GH.Repositories.EnablePrivateReporting(ctx, owner, name)
+		} else {
+			_, err = e.GH.Repositories.DisablePrivateReporting(ctx, owner, name)
+		}
+	default:
+		return errors.New("meles cannot change this setting yet")
+	}
+	return err
 }
 
 // commit writes the files as one commit on the base and points the branch at

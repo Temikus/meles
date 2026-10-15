@@ -63,7 +63,7 @@ func TestIntegrationApply(t *testing.T) {
 	opened := regexp.MustCompile(`opened #(\d+)`)
 	apply := func(step string) (string, int) {
 		t.Helper()
-		code, out, errOut := run(t, "apply", "-c", filepath.Join(ctl, "meles.yml"), "--owner", owner, "--repo", full, "--cache-dir", cache, "-v")
+		code, out, errOut := run(t, "apply", "-c", filepath.Join(ctl, "meles.yml"), "--owner", owner, "--repo", full, "--cache-dir", cache, "-v", "--yes")
 		if code != 0 {
 			t.Fatalf("%s: exit %d\n%s\n%s", step, code, out, errOut)
 		}
@@ -119,6 +119,86 @@ func TestIntegrationApply(t *testing.T) {
 	}
 	if _, n := apply("reopened, no drift"); n != 0 {
 		t.Errorf("reopened, no drift: %d writes, want 0", n)
+	}
+}
+
+// Turns Dependabot alerts off, then checks that enforce mode turns them back
+// on and that a second run makes no writes. Needs admin on the repo.
+func TestIntegrationApplySettings(t *testing.T) {
+	full := os.Getenv("MELES_IT_REPO")
+	if os.Getenv("MELES_INTEGRATION") == "" || full == "" {
+		t.Skip("set MELES_INTEGRATION=1 and MELES_IT_REPO=owner/name")
+	}
+	owner, name, _ := strings.Cut(full, "/")
+	ctx := context.Background()
+	token, err := ghclient.Token(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gh, _, err := ghclient.New(token, ghclient.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if _, err := gh.Repositories.EnableVulnerabilityAlerts(ctx, owner, name); err != nil {
+			t.Logf("cleanup: %v", err)
+		}
+	})
+	ctl, cache := t.TempDir(), t.TempDir()
+	branch := "meles-it/" + time.Now().UTC().Format("20060102-150405")
+	yml := fmt.Sprintf("version: 1\ndefaults:\n  pr:\n    branch: %s\nselectors:\n  sandbox: { name: %q }\npolicies:\n  - id: security.features\n    on: sandbox\n    mode: enforce\n    with:\n      dependabot_alerts: true\n", branch, name)
+	if err := os.WriteFile(filepath.Join(ctl, "meles.yml"), []byte(yml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	writes := regexp.MustCompile(`(\d+) writes`)
+	apply := func(step string) (string, int) {
+		t.Helper()
+		code, out, errOut := run(t, "apply", "-c", filepath.Join(ctl, "meles.yml"), "--owner", owner, "--repo", full, "--cache-dir", cache, "-v", "--yes")
+		if code != 0 {
+			t.Fatalf("%s: exit %d\n%s\n%s", step, code, out, errOut)
+		}
+		m := writes.FindStringSubmatch(errOut)
+		if m == nil {
+			t.Fatalf("%s: no write count in %q", step, errOut)
+		}
+		n, _ := strconv.Atoi(m[1])
+		t.Logf("%s: %d writes\n%s", step, n, out)
+		return out, n
+	}
+	// Reads of this setting flap between old and new for some seconds after
+	// a write, so wait for five matching reads in a row.
+	settle := func(want bool) {
+		t.Helper()
+		streak := 0
+		for range 60 {
+			if on, _, err := gh.Repositories.GetVulnerabilityAlerts(ctx, owner, name); err == nil && on == want {
+				if streak++; streak == 5 {
+					return
+				}
+			} else {
+				streak = 0
+			}
+			time.Sleep(time.Second)
+		}
+		t.Fatalf("alerts never settled as %v", want)
+	}
+	if _, err := gh.Repositories.EnableVulnerabilityAlerts(ctx, owner, name); err != nil {
+		t.Fatal(err)
+	}
+	settle(true)
+	if _, n := apply("already on"); n != 0 {
+		t.Errorf("already on: %d writes, want 0", n)
+	}
+	if _, err := gh.Repositories.DisableVulnerabilityAlerts(ctx, owner, name); err != nil {
+		t.Fatal(err)
+	}
+	settle(false)
+	if out, n := apply("switched off"); n != 1 || !strings.Contains(out, "set security.dependabot_alerts to true") {
+		t.Errorf("switched off: want one write that turns alerts on (%d writes)", n)
+	}
+	settle(true)
+	if _, n := apply("no drift"); n != 0 {
+		t.Errorf("no drift: %d writes, want 0", n)
 	}
 }
 

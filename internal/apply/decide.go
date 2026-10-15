@@ -3,6 +3,7 @@
 package apply
 
 import (
+	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -36,11 +37,14 @@ const (
 )
 
 // Decision is what apply does to one repo. The zero value of each write
-// field means "leave it".
+// field means "leave it". Kind is about the PR; Settings apply regardless.
 type Decision struct {
 	Repo   *facts.Repo
 	Kind   Kind
 	Reason string // for Blocked and Deferred
+
+	Settings []policy.SettingChange
+	Branch   string // the housekeeping branch
 
 	Files    []policy.FileChange // the PR's content
 	Rewrite  bool                // new commit on the base, force-pushed to the branch
@@ -63,16 +67,51 @@ type Comment struct {
 }
 
 // Writes reports whether executing d calls a write endpoint.
-func (d Decision) Writes() bool {
+func (d Decision) Writes() bool { return len(d.Settings) > 0 || d.prWrites() }
+
+func (d Decision) prWrites() bool {
 	if d.Kind == Blocked || d.Kind == Deferred {
 		return false
 	}
 	return d.Rewrite || d.CreatePR || d.EditPR || len(d.AddLabels) > 0 || d.Kind == Close || d.Comment != nil
 }
 
+// Steps says what executing d will do, one line per step, for the approval prompt.
+func (d Decision) Steps() []string {
+	var out []string
+	for _, s := range d.Settings {
+		out = append(out, fmt.Sprintf("set %s to %v", s.Setting, s.To))
+	}
+	if !d.prWrites() {
+		return out
+	}
+	if d.Comment != nil {
+		out = append(out, fmt.Sprintf("comment on #%d about the accepted close", d.Comment.PR))
+	}
+	switch {
+	case d.Kind == Close:
+		return append(out, fmt.Sprintf("close #%d: nothing left to change", d.PR))
+	case d.Kind != Write:
+		return out
+	}
+	if d.Rewrite {
+		out = append(out, fmt.Sprintf("push %d file(s) to %s", len(d.Files), d.Branch))
+	}
+	switch {
+	case d.CreatePR:
+		out = append(out, "open a PR")
+	case d.EditPR || d.Rewrite:
+		out = append(out, fmt.Sprintf("update #%d", d.PR))
+	}
+	if len(d.AddLabels) > 0 && !d.CreatePR {
+		out = append(out, fmt.Sprintf("label #%d %s", d.PR, strings.Join(d.AddLabels, ", ")))
+	}
+	return out
+}
+
 // Decide compares the plan's PR items with the branch and PR GitHub has now.
 func Decide(rp plan.RepoPlan, r *facts.Repo, o Options) Decision {
-	d := Decision{Repo: r, Kind: Nothing}
+	d := Decision{Repo: r, Kind: Nothing, Branch: o.Branch}
 	hk := r.Housekeeping
 	if len(rp.Errors) > 0 {
 		return blocked(d, "repo has errors: "+strings.Join(rp.Errors, "; "))
@@ -80,9 +119,19 @@ func Decide(rp plan.RepoPlan, r *facts.Repo, o Options) Decision {
 
 	var items []plan.Item
 	for _, it := range rp.Items {
-		if fc, ok := it.Change.(policy.FileChange); ok && it.Action == plan.ActionPR && it.Invalid == "" {
-			items = append(items, it)
-			d.Files = append(d.Files, fc)
+		if it.Invalid != "" {
+			continue
+		}
+		switch c := it.Change.(type) {
+		case policy.FileChange:
+			if it.Action == plan.ActionPR {
+				items = append(items, it)
+				d.Files = append(d.Files, c)
+			}
+		case policy.SettingChange:
+			if it.Action == plan.ActionApply {
+				d.Settings = append(d.Settings, c)
+			}
 		}
 	}
 

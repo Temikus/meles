@@ -79,7 +79,7 @@ func acceptBody(items []plan.Item, today time.Time) string {
 	var b strings.Builder
 	b.WriteString(housekeeping.NoteMarker + "\n")
 	b.WriteString("Closed without merging, so meles leaves these findings alone (`on_close: accept`). ")
-	b.WriteString("They come back only if the drift changes shape.\n\n")
+	b.WriteString("They come back in a year, or sooner if the drift changes shape.\n\n")
 	b.WriteString("To record why, add this to `.meles.yml` in this repo:\n\n```yaml\nexempt:\n")
 	until := today.AddDate(1, 0, 0).Format(time.DateOnly)
 	for _, it := range items {

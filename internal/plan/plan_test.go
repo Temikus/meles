@@ -175,19 +175,23 @@ func TestAcceptedCloses(t *testing.T) {
 		return "## meles\n\n" + housekeeping.Marker{Items: items, ClosedBy: closedBy}.Encode()
 	}
 	carried := housekeeping.Item{Key: a.Key(), Shape: a.Shape(), OnClose: config.Accept}
+	closed := today.AddDate(0, -1, 0)
 	for _, tc := range []struct {
 		name    string
 		onClose config.OnClose
 		pr      facts.PR
 		skip    bool
+		note    string
 	}{
-		{"closed by a human", config.Accept, facts.PR{Number: 7, Body: marker("", carried)}, true},
-		{"drift changed shape", config.Accept, facts.PR{Number: 7, Body: marker("", housekeeping.Item{Key: a.Key(), Shape: "other"})}, false},
-		{"policy now says reopen", config.Reopen, facts.PR{Number: 7, Body: marker("", carried)}, false},
-		{"merged", config.Accept, facts.PR{Number: 7, Merged: true, Body: marker("", carried)}, false},
-		{"still open", config.Accept, facts.PR{Number: 7, Open: true, Body: marker("", carried)}, false},
-		{"closed by meles", config.Accept, facts.PR{Number: 7, Body: marker(housekeeping.ClosedByMeles, carried)}, false},
-		{"not a meles PR", config.Accept, facts.PR{Number: 7, Body: "hand-written " + a.Key()}, false},
+		{"closed by a human", config.Accept, facts.PR{Number: 7, ClosedAt: closed, Body: marker("", carried)}, true, "closed in #7 (accept until 2027-09-15)"},
+		{"accept ends after a year, inclusive", config.Accept, facts.PR{Number: 7, ClosedAt: today.AddDate(-1, 0, 0), Body: marker("", carried)}, true, "closed in #7 (accept until 2026-10-15)"},
+		{"accept expired", config.Accept, facts.PR{Number: 7, ClosedAt: today.AddDate(-1, 0, -1), Body: marker("", carried)}, false, "accept from #7 expired 2026-10-14"},
+		{"drift changed shape", config.Accept, facts.PR{Number: 7, ClosedAt: closed, Body: marker("", housekeeping.Item{Key: a.Key(), Shape: "other"})}, false, ""},
+		{"policy now says reopen", config.Reopen, facts.PR{Number: 7, ClosedAt: closed, Body: marker("", carried)}, false, ""},
+		{"merged", config.Accept, facts.PR{Number: 7, ClosedAt: closed, Merged: true, Body: marker("", carried)}, false, ""},
+		{"still open", config.Accept, facts.PR{Number: 7, Open: true, Body: marker("", carried)}, false, ""},
+		{"closed by meles", config.Accept, facts.PR{Number: 7, ClosedAt: closed, Body: marker(housekeeping.ClosedByMeles, carried)}, false, ""},
+		{"not a meles PR", config.Accept, facts.PR{Number: 7, ClosedAt: closed, Body: "hand-written " + a.Key()}, false, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			in := inst("k", "k", config.PR, config.Selector{}, stub{"k", []policy.Finding{a, b}, policy.FileChange{Path: "x"}})
@@ -198,8 +202,8 @@ func TestAcceptedCloses(t *testing.T) {
 			if got := items[0].Action == ActionSkip; got != tc.skip {
 				t.Errorf("a: action %s note %q, want skip=%v", items[0].Action, items[0].Note, tc.skip)
 			}
-			if tc.skip && items[0].Note != "closed in #7 (accept)" {
-				t.Errorf("note = %q", items[0].Note)
+			if items[0].Note != tc.note {
+				t.Errorf("note = %q, want %q", items[0].Note, tc.note)
 			}
 			if items[1].Action != ActionPR {
 				t.Errorf("b was not in the PR and must stay: %+v", items[1])

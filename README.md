@@ -30,12 +30,15 @@ meles validate -c meles.yml          # check the config, no API calls
 meles plan -c meles.yml              # what meles would change; never writes
 meles plan --owner my-org --json     # another owner, machine-readable
 meles apply -c meles.yml --repo 'me/sandbox'   # make the changes, here for one repo
+meles apply --yes                    # no approval prompt, for CI
 meles version
 ```
 
 `apply` puts every file change for a repo into one PR on
-`meles/housekeeping` and updates it in place. A second run with no drift
-makes no writes. A repo opts out in its own `.meles.yml`; see
+`meles/housekeeping` and updates it in place. Settings change directly,
+but only for policies with `mode: enforce`. `apply` shows what it will do
+and asks for `yes` first, unless you pass `--yes`. A second run with no
+drift makes no writes. A repo opts out in its own `.meles.yml`; see
 [examples/.meles.yml](examples/.meles.yml).
 
 `plan` is the default command. The token comes from `GH_TOKEN`,
