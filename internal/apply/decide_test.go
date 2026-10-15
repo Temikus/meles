@@ -225,7 +225,7 @@ func TestDecideCommentsOnceOnAcceptedClose(t *testing.T) {
 	}
 }
 
-var alerts = settingItem("dependabot_alerts", config.Enforce, plan.ActionApply)
+var alerts = settingItem("dependabotAlerts", config.Enforce, plan.ActionApply)
 
 func settingItem(name string, mode config.Mode, a plan.Action) plan.Item {
 	f := policy.Finding{Kind: "security.features", Subject: "setting:security." + name, Message: name + " is off, want on", Fix: policy.FixSet}
@@ -236,12 +236,12 @@ func settingItem(name string, mode config.Mode, a plan.Action) plan.Item {
 }
 
 func TestDecideSettings(t *testing.T) {
-	report := settingItem("secret_scanning", config.PR, plan.ActionReport)
+	report := settingItem("secretScanning", config.PR, plan.ActionReport)
 	d := Decide(rp(alerts, report), policytest.Repo(nil), opts)
-	if len(d.Settings) != 1 || d.Settings[0].Setting != "security.dependabot_alerts" || !d.Writes() {
+	if len(d.Settings) != 1 || d.Settings[0].Setting != "security.dependabotAlerts" || !d.Writes() {
 		t.Errorf("want only the enforce setting applied: %+v", d)
 	}
-	if want := []string{"set security.dependabot_alerts to true"}; !slices.Equal(d.Steps(), want) {
+	if want := []string{"set security.dependabotAlerts to true"}; !slices.Equal(d.Steps(), want) {
 		t.Errorf("steps = %q, want %q", d.Steps(), want)
 	}
 
@@ -289,7 +289,7 @@ func TestLimit(t *testing.T) {
 	ds := Limit([]Decision{first, labels, first, first}, 2)
 	got := []Kind{ds[0].Kind, ds[1].Kind, ds[2].Kind, ds[3].Kind}
 	if !slices.Equal(got, []Kind{Write, Write, Write, Deferred}) {
-		t.Errorf("kinds = %v; a label-only update does not count toward max_per_run", got)
+		t.Errorf("kinds = %v; a label-only update does not count toward maxPerRun", got)
 	}
 }
 

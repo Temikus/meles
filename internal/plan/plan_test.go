@@ -164,7 +164,7 @@ func TestFindingOnCloseOverridesInstance(t *testing.T) {
 	insts := []Instance{inst("k", "k", config.PR, config.Selector{}, stub{"k", finds, policy.FileChange{Path: "x"}})}
 	items := Evaluate(insts, []*facts.Repo{policytest.Repo(nil)}, today).Repos[0].Items
 	if items[0].OnClose != config.Reopen || items[1].OnClose != config.Accept {
-		t.Errorf("on_close = %s, %s; want reopen from the finding, accept from the instance", items[0].OnClose, items[1].OnClose)
+		t.Errorf("onClose = %s, %s; want reopen from the finding, accept from the instance", items[0].OnClose, items[1].OnClose)
 	}
 }
 

@@ -104,21 +104,21 @@ func (e *Executor) set(ctx context.Context, owner, name string, s policy.Setting
 	}
 	var err error
 	switch s.Setting {
-	case "security.secret_scanning":
+	case "security.secretScanning":
 		_, _, err = e.GH.Repositories.Edit(ctx, owner, name, &github.Repository{
 			SecurityAndAnalysis: &github.SecurityAndAnalysis{SecretScanning: &github.SecretScanning{Status: &status}},
 		})
-	case "security.push_protection":
+	case "security.pushProtection":
 		_, _, err = e.GH.Repositories.Edit(ctx, owner, name, &github.Repository{
 			SecurityAndAnalysis: &github.SecurityAndAnalysis{SecretScanningPushProtection: &github.SecretScanningPushProtection{Status: &status}},
 		})
-	case "security.dependabot_alerts":
+	case "security.dependabotAlerts":
 		if on {
 			_, err = e.GH.Repositories.EnableVulnerabilityAlerts(ctx, owner, name)
 		} else {
 			_, err = e.GH.Repositories.DisableVulnerabilityAlerts(ctx, owner, name)
 		}
-	case "security.private_vuln_reporting":
+	case "security.privateVulnReporting":
 		if on {
 			_, err = e.GH.Repositories.EnablePrivateReporting(ctx, owner, name)
 		} else {

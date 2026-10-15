@@ -6,8 +6,8 @@ defaults:
   pr:
     branch: meles/housekeeping
     labels: [housekeeping]
-    max_per_run: 20
-    on_close: accept         # accept | reopen
+    maxPerRun: 20
+    onClose: accept         # accept | reopen
 
 selectors:
   all:    { archived: false, fork: false }
@@ -21,16 +21,16 @@ policies:
     with:
       prefer: renovate                      # renovate | dependabot
       extends: ["github>temikus/renovate-config"]
-      forbid_both: true
+      forbidBoth: true
 
   - id: security.features
     on: all
     mode: enforce
     with:
-      secret_scanning: true
-      push_protection: true
-      dependabot_alerts: true
-      private_vuln_reporting: true
+      secretScanning: true
+      pushProtection: true
+      dependabotAlerts: true
+      privateVulnReporting: true
 
   # Keys are GitHub's community standards. GitHub decides whether each is met,
   # including files inherited from the owner's public .github repo.
@@ -38,8 +38,8 @@ policies:
     on: public
     with:
       license:          { template: templates/LICENSE.apache-2.0 }
-      security_policy:  { template: templates/SECURITY.md, on_close: reopen }   # not optional
-      codeowners:       { template: templates/CODEOWNERS, create_at: .github/CODEOWNERS }
+      securityPolicy:  { template: templates/SECURITY.md, onClose: reopen }   # not optional
+      codeowners:       { template: templates/CODEOWNERS, createAt: .github/CODEOWNERS }
       readme:           { badges: [ci, license] }       # check only
 
   # Keys are exact repo paths, for files GitHub does not track.
@@ -52,7 +52,7 @@ policies:
     on: all
     mode: enforce
     with:
-      merge: { squash: true, merge: false, rebase: false, delete_branch: true }
+      merge: { squash: true, merge: false, rebase: false, deleteBranch: true }
       features: { wiki: false, projects: false }
       ruleset: rulesets/default.json
 
@@ -67,8 +67,8 @@ policies:
 
   - id: actions.pinning
     on: all
-    on_close: reopen
-    with: { pin: sha, comment_version: true }
+    onClose: reopen
+    with: { pin: sha, commentVersion: true }
 
   - id: release.tooling
     on: all

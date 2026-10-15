@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	renovate   = `{prefer: renovate, extends: ["github>temikus/renovate-config"], forbid_both: true}`
-	dependabot = `{prefer: dependabot, forbid_both: true}`
+	renovate   = `{prefer: renovate, extends: ["github>temikus/renovate-config"], forbidBoth: true}`
+	dependabot = `{prefer: dependabot, forbidBoth: true}`
 	goodJSON   = `{"extends": ["github>temikus/renovate-config"]}`
 )
 

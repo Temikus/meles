@@ -69,27 +69,27 @@ an expiry date so exemptions do not rot silently.
 ## Closed PRs
 
 A human closing a meles PR is a signal, and policies differ on what it
-means. `on_close` is set per policy, with a global default. Policies with
+means. `onClose` is set per policy, with a global default. Policies with
 entries (`governance.standards`, `governance.files`) also take it per
 entry, so `reopen` on the security policy does not pin CODEOWNERS too:
 
-| `on_close` | behaviour                                                        |
+| `onClose` | behaviour                                                        |
 |------------|------------------------------------------------------------------|
 | `accept`   | the close is a quiet exemption for that finding for one year. meles posts one comment saying how to record it in `.meles.yml`, and re-opens early if the drift changes shape (new file, new constraint). Default. |
 | `reopen`   | the finding is re-planned on the next run and the PR comes back. For policies that must not be waved away, such as security and actions pinning. |
 
-One PR can carry findings from policies with different `on_close`
+One PR can carry findings from policies with different `onClose`
 values, so a close is handled per finding, not per PR. The `accept`
 findings become exemptions and the single comment lists them. The
 `reopen` findings come back in a fresh PR on the next run.
 
 meles keeps no state. Each PR body ends with a hidden marker listing the
-key, shape and `on_close` of every finding it carries. A finding is
+key, shape and `onClose` of every finding it carries. A finding is
 accepted while a closed, unmerged meles PR lists the same key and shape,
 the policy still says `accept`, and the close is less than a year old.
 Like a `.meles.yml` exemption, it cannot hide a finding for ever. Reopening
-the PR, or setting `on_close: reopen`, undoes it early. A PR meles closes
-itself is marked `closed_by: meles` and never counts.
+the PR, or setting `onClose: reopen`, undoes it early. A PR meles closes
+itself is marked `closedBy: meles` and never counts.
 
 ## Policy packs
 
@@ -109,7 +109,7 @@ itself is marked `closed_by: meles` and never counts.
   Keys name the standard, not a file, and GitHub decides whether it is met.
   That covers any location, unusual names, and files inherited from the
   owner's public `.github` repo. A missing one is created from a template
-  under GitHub's usual name at the root, unless `create_at:` says otherwise.
+  under GitHub's usual name at the root, unless `createAt:` says otherwise.
 - `governance.files`: keys are exact repo paths, for files GitHub does not
   track. Only that path counts.
 - Both check existence only. Content is never compared and files carry no
@@ -190,7 +190,7 @@ PR remediation + stack-aware CI shapes + release hygiene.
   permission (or `workflow` scope on a PAT). Easy to miss.
 - PR storms. Cap PRs per run, one branch per repo. Dependabot and
   Renovate both drew complaints for re-opening closed PRs, which is why
-  `on_close` defaults to `accept`.
+  `onClose` defaults to `accept`.
 - Renovate config validation: run `renovate-config-validator` on the
   generated file before PRing it.
 - Rate limits: 5000 req/h per installation. Fine for hundreds of repos
@@ -257,7 +257,7 @@ Each milestone ends with tests green and something demoable.
    `meles plan` table and `--json`.
 3. **Apply**: `FileChange` batched into one PR per repo on the stable
    branch, updated in place; `SettingChange` applied for `enforce`;
-   `.meles.yml` exemptions with expiry; `on_close` handling per finding,
+   `.meles.yml` exemptions with expiry; `onClose` handling per finding,
    settable per entry.
 4. **Run from the control repo**: GitHub App auth via `ghinstallation`,
    a reusable workflow that mints the token and runs `meles apply` on

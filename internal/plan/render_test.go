@@ -20,7 +20,7 @@ var update = flag.Bool("update", false, "rewrite golden files")
 
 func samplePlan() Plan {
 	file := stub{"governance.files", []policy.Finding{{Kind: "governance.files", Subject: "file:SECURITY.md", Message: "SECURITY.md is missing", Fix: policy.FixCreate}}, policy.FileChange{Path: "SECURITY.md", Content: []byte("hi\n")}}
-	set := stub{"security.features", []policy.Finding{{Kind: "security.features", Subject: "setting:security.secret_scanning", Message: "secret_scanning is off, want on", Fix: policy.FixSet}}, policy.SettingChange{Setting: "security.secret_scanning", From: false, To: true}}
+	set := stub{"security.features", []policy.Finding{{Kind: "security.features", Subject: "setting:security.secretScanning", Message: "secretScanning is off, want on", Fix: policy.FixSet}}, policy.SettingChange{Setting: "security.secretScanning", From: false, To: true}}
 	insts := []Instance{
 		inst("governance.files", "governance.files", config.PR, config.Selector{}, file),
 		inst("security.features", "security.features", config.PR, config.Selector{}, set),

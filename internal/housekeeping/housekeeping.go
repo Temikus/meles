@@ -33,14 +33,14 @@ const (
 type Item struct {
 	Key     string         `json:"key"`
 	Shape   string         `json:"shape"`
-	OnClose config.OnClose `json:"on_close"`
+	OnClose config.OnClose `json:"onClose"`
 }
 
 // Marker is the hidden record at the end of a meles PR body. GitHub keeps it,
 // so meles needs no state of its own.
 type Marker struct {
 	Items    []Item `json:"items,omitempty"`
-	ClosedBy string `json:"closed_by,omitempty"`
+	ClosedBy string `json:"closedBy,omitempty"`
 }
 
 // Encode renders the marker as one HTML comment line.

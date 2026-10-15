@@ -99,7 +99,7 @@ func TestIntegrationApply(t *testing.T) {
 		t.Errorf("second file: want the same PR updated in place:\n%s", out)
 	}
 
-	// A human closes the PR. Both findings are on_close: accept (the default).
+	// A human closes the PR. Both findings are onClose: accept (the default).
 	if _, _, err := gh.PullRequests.Edit(ctx, owner, name, first, &github.PullRequest{State: new("closed")}); err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func TestIntegrationApply(t *testing.T) {
 	}
 
 	// The policy now says reopen: the findings come back in a fresh PR.
-	config(", on_close: reopen", ".meles-it/hello.txt", ".meles-it/second.txt")
+	config(", onClose: reopen", ".meles-it/hello.txt", ".meles-it/second.txt")
 	out, _ = apply("reopen")
 	if second := prNumber("reopen", out); second == first {
 		t.Errorf("reopen: PR #%d reused; want a fresh PR", second)
@@ -146,7 +146,7 @@ func TestIntegrationApplySettings(t *testing.T) {
 	})
 	ctl, cache := t.TempDir(), t.TempDir()
 	branch := "meles-it/" + time.Now().UTC().Format("20060102-150405")
-	yml := fmt.Sprintf("version: 1\ndefaults:\n  pr:\n    branch: %s\nselectors:\n  sandbox: { name: %q }\npolicies:\n  - id: security.features\n    on: sandbox\n    mode: enforce\n    with:\n      dependabot_alerts: true\n", branch, name)
+	yml := fmt.Sprintf("version: 1\ndefaults:\n  pr:\n    branch: %s\nselectors:\n  sandbox: { name: %q }\npolicies:\n  - id: security.features\n    on: sandbox\n    mode: enforce\n    with:\n      dependabotAlerts: true\n", branch, name)
 	if err := os.WriteFile(filepath.Join(ctl, "meles.yml"), []byte(yml), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func TestIntegrationApplySettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	settle(false)
-	if out, n := apply("switched off"); n != 1 || !strings.Contains(out, "set security.dependabot_alerts to true") {
+	if out, n := apply("switched off"); n != 1 || !strings.Contains(out, "set security.dependabotAlerts to true") {
 		t.Errorf("switched off: want one write that turns alerts on (%d writes)", n)
 	}
 	settle(true)

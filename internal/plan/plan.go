@@ -74,7 +74,7 @@ type Item struct {
 	Key     string         `json:"key"`
 	Shape   string         `json:"shape"`
 	Mode    config.Mode    `json:"mode"`
-	OnClose config.OnClose `json:"on_close"`
+	OnClose config.OnClose `json:"onClose"`
 	Action  Action         `json:"action"`
 	Note    string         `json:"note,omitempty"`
 	Invalid string         `json:"invalid,omitempty"` // validator output; apply refuses the change
@@ -116,15 +116,15 @@ type RepoPlan struct {
 // Summary counts the plan.
 type Summary struct {
 	Repos             int            `json:"repos"`
-	ReposWithFindings int            `json:"repos_with_findings"`
+	ReposWithFindings int            `json:"reposWithFindings"`
 	Findings          int            `json:"findings"`
-	ByAction          map[Action]int `json:"by_action"`
+	ByAction          map[Action]int `json:"byAction"`
 }
 
 // Plan is the output of `meles plan`.
 type Plan struct {
 	Version    int        `json:"version"`
-	ControlRef string     `json:"control_ref,omitempty"`
+	ControlRef string     `json:"controlRef,omitempty"`
 	Summary    Summary    `json:"summary"`
 	Repos      []RepoPlan `json:"repos"`
 	Warnings   []string   `json:"warnings,omitempty"`

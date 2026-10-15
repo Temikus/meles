@@ -8,7 +8,7 @@ import (
 	"github.com/temikus/meles/internal/policy/policytest"
 )
 
-const allOn = "{secret_scanning: true, push_protection: true, dependabot_alerts: true, private_vuln_reporting: true}"
+const allOn = "{secretScanning: true, pushProtection: true, dependabotAlerts: true, privateVulnReporting: true}"
 
 func sec(ss, pp, da, pvr facts.Tri) *facts.Repo {
 	r := policytest.Repo(nil)
@@ -27,17 +27,17 @@ func TestEvaluate(t *testing.T) {
 		{"compliant", allOn, sec(on, on, on, on), nil},
 		{
 			"one off", allOn, sec(on, on, off, on),
-			[]policy.Finding{{Kind: Kind, Subject: "setting:security.dependabot_alerts", Message: "dependabot_alerts is off, want on", Fix: policy.FixSet}},
+			[]policy.Finding{{Kind: Kind, Subject: "setting:security.dependabotAlerts", Message: "dependabotAlerts is off, want on", Fix: policy.FixSet}},
 		},
 		{
-			"want disabled", "{private_vuln_reporting: false}", sec(on, on, on, on),
-			[]policy.Finding{{Kind: Kind, Subject: "setting:security.private_vuln_reporting", Message: "private_vuln_reporting is on, want off", Fix: policy.FixSet}},
+			"want disabled", "{privateVulnReporting: false}", sec(on, on, on, on),
+			[]policy.Finding{{Kind: Kind, Subject: "setting:security.privateVulnReporting", Message: "privateVulnReporting is on, want off", Fix: policy.FixSet}},
 		},
 		{
-			"unknown is check-only", "{secret_scanning: true}", sec(unk, unk, on, on),
-			[]policy.Finding{{Kind: Kind, Subject: "setting:security.secret_scanning", Message: "secret_scanning is unreadable with this token (needs admin)"}},
+			"unknown is check-only", "{secretScanning: true}", sec(unk, unk, on, on),
+			[]policy.Finding{{Kind: Kind, Subject: "setting:security.secretScanning", Message: "secretScanning is unreadable with this token (needs admin)"}},
 		},
-		{"unavailable is silent", "{secret_scanning: true, push_protection: true}", sec(na, na, on, on), nil},
+		{"unavailable is silent", "{secretScanning: true, pushProtection: true}", sec(na, na, on, on), nil},
 		{"unset keys ignored", "{}", sec(off, off, off, off), nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -61,11 +61,11 @@ func TestRemediate(t *testing.T) {
 	if !ok {
 		t.Fatal("Remediate returned check-only")
 	}
-	want := policy.SettingChange{Setting: "security.secret_scanning", From: false, To: true}
+	want := policy.SettingChange{Setting: "security.secretScanning", From: false, To: true}
 	if c != want {
 		t.Errorf("change = %+v, want %+v", c, want)
 	}
-	if _, ok := p.Remediate(r, policy.Finding{Kind: Kind, Subject: "setting:security.secret_scanning", Message: "x"}); ok {
+	if _, ok := p.Remediate(r, policy.Finding{Kind: Kind, Subject: "setting:security.secretScanning", Message: "x"}); ok {
 		t.Error("check-only finding must not remediate")
 	}
 }

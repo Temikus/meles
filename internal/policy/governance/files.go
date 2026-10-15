@@ -45,7 +45,7 @@ func NewFiles(n *yaml.Node, ctl fs.FS) (policy.Policy, error) {
 		}
 		var spec struct {
 			Template string         `yaml:"template"`
-			OnClose  config.OnClose `yaml:"on_close"`
+			OnClose  config.OnClose `yaml:"onClose"`
 		}
 		if err := config.DecodeStrict(n.Content[i+1], &spec); err != nil {
 			return nil, fmt.Errorf("%s: %w", key.Value, err)
@@ -90,7 +90,7 @@ func (p *files) Remediate(r *facts.Repo, f policy.Finding) (policy.Change, bool)
 
 func checkOnClose(o config.OnClose) error {
 	if o != "" && !o.Valid() {
-		return fmt.Errorf("on_close %q must be accept or reopen", o)
+		return fmt.Errorf("onClose %q must be accept or reopen", o)
 	}
 	return nil
 }

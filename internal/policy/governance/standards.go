@@ -19,19 +19,19 @@ const StandardsKind = "governance.standards"
 
 type standard struct {
 	missing string // finding message
-	file    string // created here unless create_at says otherwise
+	file    string // created here unless createAt says otherwise
 	met     func(facts.Standards) bool
 }
 
 // GitHub decides whether each is met, so a file in the wrong place or with an
 // unusual name counts exactly when GitHub shows it.
 var standards = map[string]standard{
-	"license":         {"no license", "LICENSE", func(s facts.Standards) bool { return s.License }},
-	"security_policy": {"no security policy", "SECURITY.md", func(s facts.Standards) bool { return s.SecurityPolicy }},
-	"code_of_conduct": {"no code of conduct", "CODE_OF_CONDUCT.md", func(s facts.Standards) bool { return s.CodeOfConduct }},
-	"contributing":    {"no contributing guidelines", "CONTRIBUTING.md", func(s facts.Standards) bool { return s.Contributing }},
-	"codeowners":      {"no CODEOWNERS file", "CODEOWNERS", func(s facts.Standards) bool { return s.Codeowners }},
-	"readme":          {"no README", "README.md", func(s facts.Standards) bool { return s.Readme != "" }},
+	"license":        {"no license", "LICENSE", func(s facts.Standards) bool { return s.License }},
+	"securityPolicy": {"no security policy", "SECURITY.md", func(s facts.Standards) bool { return s.SecurityPolicy }},
+	"codeOfConduct":  {"no code of conduct", "CODE_OF_CONDUCT.md", func(s facts.Standards) bool { return s.CodeOfConduct }},
+	"contributing":   {"no contributing guidelines", "CONTRIBUTING.md", func(s facts.Standards) bool { return s.Contributing }},
+	"codeowners":     {"no CODEOWNERS file", "CODEOWNERS", func(s facts.Standards) bool { return s.Codeowners }},
+	"readme":         {"no README", "README.md", func(s facts.Standards) bool { return s.Readme != "" }},
 }
 
 var badgePatterns = map[string]*regexp.Regexp{
@@ -67,9 +67,9 @@ func NewStandards(n *yaml.Node, ctl fs.FS) (policy.Policy, error) {
 		}
 		var spec struct {
 			Template string         `yaml:"template"`
-			CreateAt string         `yaml:"create_at"`
+			CreateAt string         `yaml:"createAt"`
 			Badges   []string       `yaml:"badges"`
-			OnClose  config.OnClose `yaml:"on_close"`
+			OnClose  config.OnClose `yaml:"onClose"`
 		}
 		if err := config.DecodeStrict(n.Content[i+1], &spec); err != nil {
 			return nil, fmt.Errorf("%s: %w", key.Value, err)
@@ -86,7 +86,7 @@ func NewStandards(n *yaml.Node, ctl fs.FS) (policy.Policy, error) {
 			}
 		}
 		if spec.CreateAt != "" && !fs.ValidPath(spec.CreateAt) {
-			return nil, fmt.Errorf("line %d: %s: create_at %q is not a relative repo path", key.Line, key.Value, spec.CreateAt)
+			return nil, fmt.Errorf("line %d: %s: createAt %q is not a relative repo path", key.Line, key.Value, spec.CreateAt)
 		}
 		e := standardEntry{name: key.Value, standard: st, createAt: spec.CreateAt, badges: spec.Badges, onClose: spec.OnClose}
 		if e.createAt == "" {
@@ -105,7 +105,7 @@ func NewStandards(n *yaml.Node, ctl fs.FS) (policy.Policy, error) {
 }
 
 func standardNames() []string {
-	return []string{"license", "security_policy", "code_of_conduct", "contributing", "codeowners", "readme"}
+	return []string{"license", "securityPolicy", "codeOfConduct", "contributing", "codeowners", "readme"}
 }
 
 func (*standardsPolicy) Kind() string { return StandardsKind }

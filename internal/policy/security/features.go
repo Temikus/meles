@@ -17,10 +17,10 @@ import (
 const Kind = "security.features"
 
 type with struct {
-	SecretScanning       *bool `yaml:"secret_scanning"`
-	PushProtection       *bool `yaml:"push_protection"`
-	DependabotAlerts     *bool `yaml:"dependabot_alerts"`
-	PrivateVulnReporting *bool `yaml:"private_vuln_reporting"`
+	SecretScanning       *bool `yaml:"secretScanning"`
+	PushProtection       *bool `yaml:"pushProtection"`
+	DependabotAlerts     *bool `yaml:"dependabotAlerts"`
+	PrivateVulnReporting *bool `yaml:"privateVulnReporting"`
 }
 
 type features struct{ want with }
@@ -46,10 +46,10 @@ func (p *features) toggles() []struct {
 		name string
 		want *bool
 	}{
-		{"secret_scanning", p.want.SecretScanning},
-		{"push_protection", p.want.PushProtection},
-		{"dependabot_alerts", p.want.DependabotAlerts},
-		{"private_vuln_reporting", p.want.PrivateVulnReporting},
+		{"secretScanning", p.want.SecretScanning},
+		{"pushProtection", p.want.PushProtection},
+		{"dependabotAlerts", p.want.DependabotAlerts},
+		{"privateVulnReporting", p.want.PrivateVulnReporting},
 	}
 }
 
@@ -94,13 +94,13 @@ func (p *features) Remediate(r *facts.Repo, f policy.Finding) (policy.Change, bo
 
 func field(s *facts.Security, setting string) *facts.Tri {
 	switch setting {
-	case "security.secret_scanning":
+	case "security.secretScanning":
 		return &s.SecretScanning
-	case "security.push_protection":
+	case "security.pushProtection":
 		return &s.PushProtection
-	case "security.dependabot_alerts":
+	case "security.dependabotAlerts":
 		return &s.DependabotAlerts
-	case "security.private_vuln_reporting":
+	case "security.privateVulnReporting":
 		return &s.PrivateVulnReporting
 	}
 	return nil

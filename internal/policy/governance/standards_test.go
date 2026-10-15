@@ -12,8 +12,8 @@ import (
 
 const standardsExample = `
 license:         { template: templates/LICENSE }
-security_policy: { template: templates/SECURITY.md }
-codeowners:      { template: templates/CODEOWNERS, create_at: .github/CODEOWNERS }
+securityPolicy: { template: templates/SECURITY.md }
+codeowners:      { template: templates/CODEOWNERS, createAt: .github/CODEOWNERS }
 readme:          { badges: [ci, license] }
 `
 
@@ -45,7 +45,7 @@ func TestStandardsEvaluate(t *testing.T) {
 				return r
 			},
 			[]policy.Finding{
-				sf("security_policy", "no security policy", policy.FixCreate),
+				sf("securityPolicy", "no security policy", policy.FixCreate),
 				sf("codeowners", "no CODEOWNERS file", policy.FixCreate),
 			},
 		},
@@ -57,7 +57,7 @@ func TestStandardsEvaluate(t *testing.T) {
 				r.Standards.SecurityPolicy = false
 				return r
 			},
-			[]policy.Finding{sf("security_policy", "no security policy", policy.FixCreate)},
+			[]policy.Finding{sf("securityPolicy", "no security policy", policy.FixCreate)},
 		},
 		{
 			"missing without template is check-only", "{contributing: {}}",
@@ -95,10 +95,10 @@ func TestStandardsEvaluate(t *testing.T) {
 }
 
 func TestStandardsOnClosePerEntry(t *testing.T) {
-	p := newStandards(t, "{security_policy: {template: templates/SECURITY.md, on_close: reopen}, codeowners: {template: templates/CODEOWNERS}}")
+	p := newStandards(t, "{securityPolicy: {template: templates/SECURITY.md, onClose: reopen}, codeowners: {template: templates/CODEOWNERS}}")
 	got := p.Evaluate(policytest.Repo(nil))
 	if len(got) != 2 || got[0].OnClose != config.Reopen || got[1].OnClose != "" {
-		t.Errorf("findings = %+v; want reopen on security_policy only", got)
+		t.Errorf("findings = %+v; want reopen on securityPolicy only", got)
 	}
 }
 
@@ -140,9 +140,9 @@ func TestStandardsFactoryErrors(t *testing.T) {
 		{"file name instead of a standard", "{SECURITY.md: {template: templates/SECURITY.md}}"},
 		{"badges on something other than readme", "{license: {badges: [ci]}}"},
 		{"unknown badge", "{readme: {badges: [sparkles]}}"},
-		{"missing template", "{security_policy: {template: templates/nope.md}}"},
+		{"missing template", "{securityPolicy: {template: templates/nope.md}}"},
 		{"old path key", "{codeowners: {path: .github/CODEOWNERS}}"},
-		{"bad on_close", "{license: {on_close: sometimes}}"},
+		{"bad onClose", "{license: {onClose: sometimes}}"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, err := NewStandards(policytest.With(t, tc.with), ctl); err == nil {

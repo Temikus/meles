@@ -194,7 +194,7 @@ func Limit(ds []Decision, maxPerRun int) []Decision {
 			continue
 		}
 		if n++; maxPerRun > 0 && n > maxPerRun {
-			ds[i].Kind, ds[i].Reason = Deferred, "max_per_run reached"
+			ds[i].Kind, ds[i].Reason = Deferred, "maxPerRun reached"
 		}
 	}
 	return ds
