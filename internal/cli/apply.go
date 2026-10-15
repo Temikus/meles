@@ -28,6 +28,9 @@ func runApply(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	if err := plan.WriteTable(stdout, r.plan); err != nil {
 		return err
 	}
+	if n := r.plan.Summary.ByAction[plan.ActionApply]; n > 0 {
+		fmt.Fprintf(stderr, "warning: %d setting changes are not applied yet: this version of apply only opens PRs\n", n)
+	}
 
 	opts := apply.Options{
 		Branch: r.cfg.Defaults.PR.Branch, Labels: r.cfg.Defaults.PR.Labels,
