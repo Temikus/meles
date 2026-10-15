@@ -25,7 +25,7 @@ func samplePlan() Plan {
 		inst("governance.files", "governance.files", config.PR, config.Selector{}, file),
 		inst("security.features", "security.features", config.PR, config.Selector{}, set),
 	}
-	p := Evaluate(insts, []*facts.Repo{policytest.Repo(nil)})
+	p := Evaluate(insts, []*facts.Repo{policytest.Repo(nil)}, today)
 	p.Summary.Repos = 2
 	p.Repos = append(p.Repos, RepoPlan{Repo: "acme/broken", Errors: []string{"tree: 500"}})
 	p.ControlRef = "abc123"

@@ -3,3 +3,7 @@ exempt:
   - policy: ci.shape
     reason: "custom cross-compile matrix, see #42"
     until: 2027-01-01
+  - policy: governance.standards
+    subject: codeowners                  # optional: one finding, not the whole policy
+    reason: "owners come from the platform team's sync job"
+    until: 2026-12-31

@@ -8,6 +8,7 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
+	"github.com/temikus/meles/internal/config"
 	"github.com/temikus/meles/internal/facts"
 )
 
@@ -43,6 +44,8 @@ type Finding struct {
 	Subject string `json:"subject"` // "file:SECURITY.md" or "setting:security.secret_scanning"
 	Message string `json:"message"`
 	Fix     Fix    `json:"fix,omitempty"`
+	// OnClose overrides the policy's on_close for this finding; empty keeps it.
+	OnClose config.OnClose `json:"on_close,omitempty"`
 }
 
 // Key identifies the finding across runs; exemptions and on_close use it.

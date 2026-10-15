@@ -48,15 +48,15 @@ func TestRunCollectsOnlyWhatMatches(t *testing.T) {
 		{Owner: "o", Name: "broken", Visibility: "private"},
 	}
 	col := &recorder{asked: map[string]facts.Needs{}}
-	p := Run(context.Background(), insts, metas, col, 3)
+	p := Run(context.Background(), insts, metas, col, 3, today)
 
 	if _, ok := col.asked["old"]; ok {
 		t.Error("archived repo matched no selector and must not be fetched")
 	}
-	if n := col.asked["pub"]; !slices.Equal(n.Paths, []string{"x", "y"}) || !n.Security {
+	if n := col.asked["pub"]; !slices.Equal(n.Paths, []string{".meles.yml", "x", "y"}) || !n.Security {
 		t.Errorf("pub needs = %+v, want union of both policies", n)
 	}
-	if n := col.asked["priv"]; !slices.Equal(n.Paths, []string{"x"}) || n.Security {
+	if n := col.asked["priv"]; !slices.Equal(n.Paths, []string{".meles.yml", "x"}) || n.Security {
 		t.Errorf("priv needs = %+v, want only policy a", n)
 	}
 	if p.Summary.Repos != 4 || p.Summary.Findings != 2 {

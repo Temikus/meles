@@ -36,10 +36,9 @@ policies:
   # including files inherited from the owner's public .github repo.
   - id: governance.standards
     on: public
-    on_close: reopen                      # a security policy is not optional
     with:
       license:          { template: templates/LICENSE.apache-2.0 }
-      security_policy:  { template: templates/SECURITY.md }
+      security_policy:  { template: templates/SECURITY.md, on_close: reopen }   # not optional
       codeowners:       { template: templates/CODEOWNERS, create_at: .github/CODEOWNERS }
       readme:           { badges: [ci, license] }       # check only
 

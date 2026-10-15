@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/temikus/meles/internal/config"
 	"github.com/temikus/meles/internal/facts"
@@ -65,7 +66,7 @@ func runPlan(ctx context.Context, args []string, stdout, stderr io.Writer) error
 	}
 
 	blobs := &ghclient.BlobStore{Dir: *cacheDir}
-	p := plan.Run(ctx, insts, metas, &facts.Collector{GH: gh, Blobs: blobs}, 4)
+	p := plan.Run(ctx, insts, metas, &facts.Collector{GH: gh, Blobs: blobs}, 4, time.Now())
 	p.ControlRef = controlRef(ctx, filepath.Dir(*cfgPath))
 	p.Warnings = warnings
 	if v, ok := plan.RenovateValidator(); ok {

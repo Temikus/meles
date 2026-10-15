@@ -46,6 +46,7 @@ type standardEntry struct {
 	createAt string
 	badges   []string
 	tmpl     *template.Template
+	onClose  config.OnClose
 }
 
 type standardsPolicy struct{ entries []standardEntry }
@@ -65,12 +66,16 @@ func NewStandards(n *yaml.Node, ctl fs.FS) (policy.Policy, error) {
 				key.Line, key.Value, strings.Join(standardNames(), ", "))
 		}
 		var spec struct {
-			Template string   `yaml:"template"`
-			CreateAt string   `yaml:"create_at"`
-			Badges   []string `yaml:"badges"`
+			Template string         `yaml:"template"`
+			CreateAt string         `yaml:"create_at"`
+			Badges   []string       `yaml:"badges"`
+			OnClose  config.OnClose `yaml:"on_close"`
 		}
 		if err := config.DecodeStrict(n.Content[i+1], &spec); err != nil {
 			return nil, fmt.Errorf("%s: %w", key.Value, err)
+		}
+		if err := checkOnClose(spec.OnClose); err != nil {
+			return nil, fmt.Errorf("line %d: %s: %w", key.Line, key.Value, err)
 		}
 		if len(spec.Badges) > 0 && key.Value != "readme" {
 			return nil, fmt.Errorf("line %d: %s: badges apply only to readme", key.Line, key.Value)
@@ -83,7 +88,7 @@ func NewStandards(n *yaml.Node, ctl fs.FS) (policy.Policy, error) {
 		if spec.CreateAt != "" && !fs.ValidPath(spec.CreateAt) {
 			return nil, fmt.Errorf("line %d: %s: create_at %q is not a relative repo path", key.Line, key.Value, spec.CreateAt)
 		}
-		e := standardEntry{name: key.Value, standard: st, createAt: spec.CreateAt, badges: spec.Badges}
+		e := standardEntry{name: key.Value, standard: st, createAt: spec.CreateAt, badges: spec.Badges, onClose: spec.OnClose}
 		if e.createAt == "" {
 			e.createAt = st.file
 		}
@@ -119,7 +124,7 @@ func (p *standardsPolicy) Evaluate(r *facts.Repo) []policy.Finding {
 	var out []policy.Finding
 	for _, e := range p.entries {
 		if !e.standard.met(r.Standards) {
-			f := policy.Finding{Kind: StandardsKind, Subject: e.name, Message: e.standard.missing, Fix: policy.FixCreate}
+			f := policy.Finding{Kind: StandardsKind, Subject: e.name, Message: e.standard.missing, Fix: policy.FixCreate, OnClose: e.onClose}
 			if e.tmpl == nil {
 				f.Message += " (no template to create it from)"
 				f.Fix = policy.FixNone

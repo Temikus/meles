@@ -26,7 +26,7 @@ func TestLoadExample(t *testing.T) {
 		t.Errorf("security.features resolved = %+v", sec)
 	}
 	gov := cfg.Policies[2].Resolved(cfg.Defaults)
-	if gov.Mode != PR || gov.OnClose != Reopen {
+	if gov.Mode != PR || gov.OnClose != Accept {
 		t.Errorf("governance.standards resolved = %+v", gov)
 	}
 	if cfg.Policies[4].Instance(cfg.Policies) != "ci.shape[go]" || cfg.Policies[0].Instance(cfg.Policies) != "deps.updater" {
