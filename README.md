@@ -37,7 +37,7 @@ meles version
 your user cache directory, so repeat runs cost little rate limit.
 
 Implemented policies: `deps.updater`, `security.features`,
-`governance.files`. Other kinds in the example are accepted and skipped
+`governance.standards`, `governance.files`. Other kinds in the example are accepted and skipped
 with a warning until their milestone lands.
 
 ## Development

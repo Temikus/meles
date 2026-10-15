@@ -14,7 +14,8 @@ import (
 
 // Runs against a real repo because the cache relies on GitHub behaviour that
 // is poorly documented: which endpoints send ETags, and that 304s are free.
-// The repo must hold LICENSE, README.md and renovate.json, and no SECURITY.md.
+// The repo must hold LICENSE, README.md and renovate.json, and no SECURITY.md
+// or CODEOWNERS. Its owner's public .github repo must hold a SECURITY.md.
 func TestIntegrationCollectAndRevalidate(t *testing.T) {
 	full := os.Getenv("MELES_IT_REPO")
 	if os.Getenv("MELES_INTEGRATION") == "" || full == "" {
@@ -35,7 +36,7 @@ func TestIntegrationCollectAndRevalidate(t *testing.T) {
 		t.Fatal(err)
 	}
 	dir := t.TempDir()
-	needs := facts.Needs{Paths: []string{"LICENSE", "README.md", "renovate.json"}, Security: true}
+	needs := facts.Needs{Paths: []string{"LICENSE", "README.md", "renovate.json"}, Security: true, Standards: true, Readme: true}
 
 	// Each pass is a fresh client over the same cache dir, like two meles runs.
 	pass := func() (*facts.Repo, ghclient.Stats, int64) {
@@ -81,6 +82,11 @@ func TestIntegrationCollectAndRevalidate(t *testing.T) {
 	if !bytes.Contains(r.Files["renovate.json"], []byte("github>temikus/renovate-config")) {
 		t.Errorf("renovate.json = %s", r.Files["renovate.json"])
 	}
+	// GitHub's own view: SECURITY.md is inherited from <owner>/.github.
+	want := facts.Standards{License: true, SecurityPolicy: true, Readme: "README.md"}
+	if r.Standards != want || r2.Standards != want {
+		t.Errorf("standards = %+v then %+v, want %+v", r.Standards, r2.Standards, want)
+	}
 	if r.Visibility == "private" && (r.Security.SecretScanning != facts.Unavailable || r.Security.PrivateVulnReporting != facts.Unavailable) {
 		t.Errorf("private repo without GHAS: security = %+v", r.Security)
 	}
@@ -90,8 +96,11 @@ func TestIntegrationCollectAndRevalidate(t *testing.T) {
 
 	cost := second.RateUsed - first.RateUsed
 	t.Logf("first pass: %+v; second pass: %+v, cost %d, blob hits %d", first, second, cost, blobHits)
-	if second.Requests != second.NotModified+second.Uncacheable {
-		t.Errorf("second pass made %d requests, only %d were 304s and %d uncacheable", second.Requests, second.NotModified, second.Uncacheable)
+	if second.Requests != second.NotModified+second.Uncacheable+second.GraphQL {
+		t.Errorf("second pass made %d requests, only %d were 304s, %d uncacheable and %d GraphQL", second.Requests, second.NotModified, second.Uncacheable, second.GraphQL)
+	}
+	if second.GraphQL != 1 {
+		t.Errorf("want exactly 1 GraphQL query (standards), got %d", second.GraphQL)
 	}
 	if second.Uncacheable != 1 {
 		t.Errorf("want exactly 1 uncacheable request (vulnerability-alerts 204), got %d", second.Uncacheable)

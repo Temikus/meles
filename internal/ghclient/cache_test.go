@@ -178,6 +178,23 @@ func TestCountsUncacheable(t *testing.T) {
 	}
 }
 
+// GraphQL is a POST with its own quota: never cached, counted apart.
+func TestCountsGraphQL(t *testing.T) {
+	ts := httptest.NewServer(&etagServer{version: 1})
+	defer ts.Close()
+	c, tr := newCached(t, t.TempDir(), "id")
+	for range 2 {
+		resp, err := c.Post(ts.URL+"/graphql", "application/json", strings.NewReader(`{"query":"{viewer{login}}"}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+	}
+	if s := tr.Stats(); s.GraphQL != 2 || s.Requests != 2 || s.NotModified != 0 || s.Uncacheable != 0 {
+		t.Errorf("stats = %+v", s)
+	}
+}
+
 func TestBlobStore(t *testing.T) {
 	bs := BlobStore{Dir: t.TempDir()}
 	if _, ok := bs.Get("abc"); ok {

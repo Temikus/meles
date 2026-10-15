@@ -53,6 +53,18 @@ type Security struct {
 	PrivateVulnReporting Tri `json:"private_vuln_reporting"`
 }
 
+// Standards is what GitHub reports for the repo, wherever the file lives and
+// including files inherited from the owner's public .github repo.
+type Standards struct {
+	License        bool `json:"license"`
+	SecurityPolicy bool `json:"security_policy"`
+	CodeOfConduct  bool `json:"code_of_conduct"`
+	Contributing   bool `json:"contributing"`
+	Codeowners     bool `json:"codeowners"`
+	// Readme is the path of the README GitHub displays, "" if none.
+	Readme string `json:"readme,omitempty"`
+}
+
 // Repo is one repo's snapshot.
 type Repo struct {
 	Meta
@@ -60,8 +72,9 @@ type Repo struct {
 	Tree          map[string]string `json:"-"`
 	TreeTruncated bool              `json:"tree_truncated,omitempty"`
 	// Files holds content for needed paths that exist.
-	Files    map[string][]byte `json:"-"`
-	Security Security          `json:"security"`
+	Files     map[string][]byte `json:"-"`
+	Security  Security          `json:"security"`
+	Standards Standards         `json:"standards"`
 }
 
 // Has reports whether path exists on the default branch.
@@ -85,11 +98,20 @@ type Needs struct {
 	// Paths whose content is loaded into Repo.Files when present.
 	Paths    []string
 	Security bool
+	// Standards fills Repo.Standards except Readme.
+	Standards bool
+	// Readme fills Standards.Readme and loads its content into Files.
+	Readme bool
 }
 
 // Merge returns the union of n and o.
 func (n Needs) Merge(o Needs) Needs {
 	paths := slices.Concat(n.Paths, o.Paths)
 	slices.Sort(paths)
-	return Needs{Paths: slices.Compact(paths), Security: n.Security || o.Security}
+	return Needs{
+		Paths:     slices.Compact(paths),
+		Security:  n.Security || o.Security,
+		Standards: n.Standards || o.Standards,
+		Readme:    n.Readme || o.Readme,
+	}
 }

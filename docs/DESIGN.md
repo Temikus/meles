@@ -94,14 +94,18 @@ findings become exemptions and the single comment lists them. The
 ### security + governance
 - security features: secret scanning, push protection, dependabot
   alerts, private vulnerability reporting
-- required files from templates: LICENSE, SECURITY.md, CODEOWNERS,
-  CODE_OF_CONDUCT.md; README has required badges
-- `governance.files` checks existence only. A file counts as present in any
-  location GitHub reads it from (root, `.github/`, `docs/`); a missing file
-  is created at the root unless `path:` says otherwise. Content is never
-  compared and files carry no ownership header, which could break parsers.
-  Later: record a checksum of what meles wrote, so meles can tell its own
-  stale copy from a file the repo owns.
+- `governance.standards`: GitHub's community standards (license, security
+  policy, code of conduct, contributing, CODEOWNERS, README with badges).
+  Keys name the standard, not a file, and GitHub decides whether it is met.
+  That covers any location, unusual names, and files inherited from the
+  owner's public `.github` repo. A missing one is created from a template
+  under GitHub's usual name at the root, unless `create_at:` says otherwise.
+- `governance.files`: keys are exact repo paths, for files GitHub does not
+  track. Only that path counts.
+- Both check existence only. Content is never compared and files carry no
+  ownership header, which could break parsers. Later: record a checksum of
+  what meles wrote, so meles can tell its own stale copy from a file the
+  repo owns.
 - repo settings: squash-only, delete branch on merge, no wiki/projects
 - ruleset: default branch protected, required checks, signed commits
 - `actions.pinning` is its own policy, not a shape constraint: it applies
@@ -196,6 +200,10 @@ Found while building milestone 2 (verified against the live API):
 - A stale `renovate-config-validator` rejects newer options already in a
   repo. Validation blocks a change only if the current file passes and the
   changed one fails.
+- Community standards come from one GraphQL query per repo (POST, so no
+  ETag; it uses the separate GraphQL quota). `codeowners` without `refName`
+  returned null for a fork that has a CODEOWNERS file, so the default branch
+  is passed explicitly. `GET /community/profile` 404s for forks.
 
 ## Decisions
 
@@ -219,9 +227,9 @@ Each milestone ends with tests green and something demoable.
    `meles version`.
 2. **Plan, read-only**: config loader and validator for `meles.yml`,
    selectors, inventory via a token from `gh auth token`, facts with
-   ETag cache, policy interface, three policies (`deps.updater`,
-   `security.features`, `governance.files`), `meles plan` table and
-   `--json`.
+   ETag cache, policy interface, policies (`deps.updater`,
+   `security.features`, `governance.standards`, `governance.files`),
+   `meles plan` table and `--json`.
 3. **Apply**: `FileChange` batched into one PR per repo on the stable
    branch, updated in place; `SettingChange` applied for `enforce`;
    `.meles.yml` exemptions with expiry; `on_close` handling per finding.

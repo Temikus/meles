@@ -27,7 +27,7 @@ func TestLoadExample(t *testing.T) {
 	}
 	gov := cfg.Policies[2].Resolved(cfg.Defaults)
 	if gov.Mode != PR || gov.OnClose != Reopen {
-		t.Errorf("governance.files resolved = %+v", gov)
+		t.Errorf("governance.standards resolved = %+v", gov)
 	}
 	if cfg.Policies[4].Instance(cfg.Policies) != "ci.shape[go]" || cfg.Policies[0].Instance(cfg.Policies) != "deps.updater" {
 		t.Errorf("instances: %q %q", cfg.Policies[4].Instance(cfg.Policies), cfg.Policies[0].Instance(cfg.Policies))

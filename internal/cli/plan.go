@@ -75,8 +75,8 @@ func runPlan(ctx context.Context, args []string, stdout, stderr io.Writer) error
 	}
 	if *verbose {
 		s := tr.Stats()
-		fmt.Fprintf(stderr, "api: %d requests, %d not modified (free), %d uncacheable; blobs: %d from cache\n",
-			s.Requests, s.NotModified, s.Uncacheable, blobs.Hits())
+		fmt.Fprintf(stderr, "api: %d requests, %d not modified (free), %d uncacheable, %d GraphQL; blobs: %d from cache\n",
+			s.Requests, s.NotModified, s.Uncacheable, s.GraphQL, blobs.Hits())
 	}
 	if ctx.Err() != nil {
 		return ctx.Err()

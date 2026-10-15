@@ -9,9 +9,10 @@ import (
 )
 
 var factories = map[string]policy.Factory{
-	deps.Kind:       deps.New,
-	security.Kind:   security.New,
-	governance.Kind: governance.New,
+	deps.Kind:                deps.New,
+	security.Kind:            security.New,
+	governance.FilesKind:     governance.NewFiles,
+	governance.StandardsKind: governance.NewStandards,
 }
 
 // Kinds in the design that later milestones implement. Configs may use them;

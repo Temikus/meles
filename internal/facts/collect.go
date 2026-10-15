@@ -17,9 +17,10 @@ type Collector struct {
 	Blobs *ghclient.BlobStore
 }
 
-// Collect fetches the tree, the content of needed paths, and security
-// toggles if asked. Calls: tree, blobs not yet cached, and with Security:
-// repo, vulnerability-alerts, private-vulnerability-reporting.
+// Collect fetches the tree, the content of needed paths, and what else n asks
+// for. Calls: tree, blobs not yet cached; with Security: repo,
+// vulnerability-alerts, private-vulnerability-reporting; with Standards: one
+// GraphQL query; with Readme: readme.
 func (c *Collector) Collect(ctx context.Context, m Meta, n Needs) (*Repo, error) {
 	r := &Repo{Meta: m, Tree: map[string]string{}, Files: map[string][]byte{}}
 	if err := c.tree(ctx, r); err != nil {
@@ -39,6 +40,16 @@ func (c *Collector) Collect(ctx context.Context, m Meta, n Needs) (*Repo, error)
 	if n.Security {
 		if err := c.security(ctx, r); err != nil {
 			return nil, fmt.Errorf("security: %w", err)
+		}
+	}
+	if n.Standards {
+		if err := c.standards(ctx, r); err != nil {
+			return nil, fmt.Errorf("standards: %w", err)
+		}
+	}
+	if n.Readme {
+		if err := c.readme(ctx, r); err != nil {
+			return nil, fmt.Errorf("readme: %w", err)
 		}
 	}
 	return r, nil
@@ -107,6 +118,82 @@ func (c *Collector) security(ctx context.Context, r *Repo) error {
 		return err
 	}
 	r.Security.PrivateVulnReporting = TriOf(on)
+	return nil
+}
+
+// A license GitHub cannot identify is NOASSERTION, not null, so it still
+// counts. codeowners without refName returned null for a fork that has one,
+// so the ref is explicit.
+const standardsQuery = `query($owner: String!, $name: String!, $ref: String) {
+  repository(owner: $owner, name: $name) {
+    isSecurityPolicyEnabled
+    licenseInfo { spdxId }
+    codeOfConduct { key }
+    contributingGuidelines { resourcePath }
+    codeowners(refName: $ref) { errors { kind } }
+  }
+}`
+
+type present struct{}
+
+func (c *Collector) standards(ctx context.Context, r *Repo) error {
+	vars := map[string]any{"owner": r.Owner, "name": r.Name}
+	if r.DefaultBranch != "" {
+		vars["ref"] = "refs/heads/" + r.DefaultBranch
+	}
+	body := map[string]any{"query": standardsQuery, "variables": vars}
+	req, err := c.GH.NewRequest(ctx, http.MethodPost, "graphql", body)
+	if err != nil {
+		return err
+	}
+	var out struct {
+		Data struct {
+			Repository *struct {
+				IsSecurityPolicyEnabled *bool    `json:"isSecurityPolicyEnabled"`
+				LicenseInfo             *present `json:"licenseInfo"`
+				CodeOfConduct           *present `json:"codeOfConduct"`
+				ContributingGuidelines  *present `json:"contributingGuidelines"`
+				Codeowners              *present `json:"codeowners"`
+			} `json:"repository"`
+		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if _, err := c.GH.Do(req, &out); err != nil {
+		return err
+	}
+	if len(out.Errors) > 0 {
+		return errors.New(out.Errors[0].Message)
+	}
+	g := out.Data.Repository
+	if g == nil {
+		return errors.New("repository not found")
+	}
+	r.Standards.SecurityPolicy = g.IsSecurityPolicyEnabled != nil && *g.IsSecurityPolicyEnabled
+	r.Standards.License = g.LicenseInfo != nil
+	r.Standards.CodeOfConduct = g.CodeOfConduct != nil
+	r.Standards.Contributing = g.ContributingGuidelines != nil
+	r.Standards.Codeowners = g.Codeowners != nil
+	return nil
+}
+
+// readme asks GitHub which README it displays, so its location rules stay
+// GitHub's.
+func (c *Collector) readme(ctx context.Context, r *Repo) error {
+	rc, _, err := c.GH.Repositories.GetReadme(ctx, r.Owner, r.Name, nil)
+	if status(err) == http.StatusNotFound {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	content, err := rc.GetContent()
+	if err != nil {
+		return err
+	}
+	r.Standards.Readme = rc.GetPath()
+	r.Files[rc.GetPath()] = []byte(content)
 	return nil
 }
 

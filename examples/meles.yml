@@ -32,14 +32,22 @@ policies:
       dependabot_alerts: true
       private_vuln_reporting: true
 
-  - id: governance.files
+  # Keys are GitHub's community standards. GitHub decides whether each is met,
+  # including files inherited from the owner's public .github repo.
+  - id: governance.standards
     on: public
-    on_close: reopen                      # SECURITY.md is not optional
+    on_close: reopen                      # a security policy is not optional
     with:
-      LICENSE:            { template: templates/LICENSE.apache-2.0 }
-      SECURITY.md:        { template: templates/SECURITY.md }
-      CODEOWNERS:         { template: templates/CODEOWNERS, path: .github/CODEOWNERS }
-      README.md:          { badges: [ci, license] }       # check only
+      license:          { template: templates/LICENSE.apache-2.0 }
+      security_policy:  { template: templates/SECURITY.md }
+      codeowners:       { template: templates/CODEOWNERS, create_at: .github/CODEOWNERS }
+      readme:           { badges: [ci, license] }       # check only
+
+  # Keys are exact repo paths, for files GitHub does not track.
+  # - id: governance.files
+  #   on: all
+  #   with:
+  #     .editorconfig:  { template: templates/editorconfig }
 
   - id: governance.settings
     on: all
