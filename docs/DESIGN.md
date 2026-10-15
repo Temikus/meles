@@ -69,7 +69,9 @@ an expiry date so exemptions do not rot silently.
 ## Closed PRs
 
 A human closing a meles PR is a signal, and policies differ on what it
-means. `on_close` is set per policy, with a global default:
+means. `on_close` is set per policy, with a global default. Policies with
+entries (`governance.standards`, `governance.files`) also take it per
+entry, so `reopen` on the security policy does not pin CODEOWNERS too:
 
 | `on_close` | behaviour                                                        |
 |------------|------------------------------------------------------------------|
@@ -232,7 +234,8 @@ Each milestone ends with tests green and something demoable.
    `meles plan` table and `--json`.
 3. **Apply**: `FileChange` batched into one PR per repo on the stable
    branch, updated in place; `SettingChange` applied for `enforce`;
-   `.meles.yml` exemptions with expiry; `on_close` handling per finding.
+   `.meles.yml` exemptions with expiry; `on_close` handling per finding,
+   settable per entry.
 4. **Run from the control repo**: GitHub App auth via `ghinstallation`,
    a reusable workflow that mints the token and runs `meles apply` on
    cron, job summary report.
