@@ -53,7 +53,7 @@ func TestRunCollectsOnlyWhatMatches(t *testing.T) {
 	if _, ok := col.asked["old"]; ok {
 		t.Error("archived repo matched no selector and must not be fetched")
 	}
-	if n := col.asked["pub"]; !slices.Equal(n.Paths, []string{".meles.yml", "x", "y"}) || !n.Security {
+	if n := col.asked["pub"]; !slices.Equal(n.Paths, []string{".meles.yml", "x", "y"}) || !n.Security || !n.PRs {
 		t.Errorf("pub needs = %+v, want union of both policies", n)
 	}
 	if n := col.asked["priv"]; !slices.Equal(n.Paths, []string{".meles.yml", "x"}) || n.Security {

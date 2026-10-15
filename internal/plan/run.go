@@ -26,7 +26,7 @@ func Run(ctx context.Context, insts []Instance, metas []facts.Meta, col Collecto
 	}
 	var jobs []job
 	for _, m := range metas {
-		n := facts.Needs{Paths: []string{exempt.Path}}
+		n := facts.Needs{Paths: []string{exempt.Path}, PRs: true}
 		wanted := false
 		for _, in := range insts {
 			if selector.Prefilter(in.Selector, m) {

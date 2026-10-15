@@ -13,6 +13,7 @@ import (
 	"github.com/temikus/meles/internal/config"
 	"github.com/temikus/meles/internal/exempt"
 	"github.com/temikus/meles/internal/facts"
+	"github.com/temikus/meles/internal/housekeeping"
 	"github.com/temikus/meles/internal/policy"
 	"github.com/temikus/meles/internal/policy/registry"
 	"github.com/temikus/meles/internal/selector"
@@ -63,7 +64,7 @@ const (
 	ActionApply  Action = "apply"  // setting change, applied directly
 	ActionReport Action = "report" // has a fix, but mode does not allow it
 	ActionCheck  Action = "check"  // no automatic fix
-	ActionSkip   Action = "skip"   // exempted by the repo; apply leaves it alone
+	ActionSkip   Action = "skip"   // exempt, or a human closed its PR; apply leaves it alone
 )
 
 // Item is one finding with what meles would do about it.
@@ -164,6 +165,7 @@ func evaluateRepo(insts []Instance, r *facts.Repo, today time.Time) RepoPlan {
 	if err != nil {
 		rp.Errors = append(rp.Errors, fmt.Sprintf("%s: %v", exempt.Path, err))
 	}
+	accepted := acceptedCloses(r.Housekeeping.PRs)
 	byKind := map[string][]Instance{}
 	var kinds []string
 	for _, in := range insts {
@@ -195,6 +197,10 @@ func evaluateRepo(insts []Instance, r *facts.Repo, today time.Time) RepoPlan {
 			case expired != nil:
 				it.Note = joinNote(it.Note, "exemption expired "+expired.Until.Format(time.DateOnly))
 			}
+			if n, ok := accepted[it.Key+"\x00"+it.Shape]; ok && it.Action != ActionSkip && it.OnClose == config.Accept {
+				it.Action = ActionSkip
+				it.Note = fmt.Sprintf("closed in #%d (accept)", n)
+			}
 			rp.Items = append(rp.Items, it)
 		}
 	}
@@ -202,6 +208,28 @@ func evaluateRepo(insts []Instance, r *facts.Repo, today time.Time) RepoPlan {
 		return cmp.Or(cmp.Compare(a.Policy, b.Policy), cmp.Compare(a.Finding.Subject, b.Finding.Subject))
 	})
 	return rp
+}
+
+// acceptedCloses maps key and shape to the newest meles PR a human closed
+// without merging while it carried that finding.
+func acceptedCloses(prs []facts.PR) map[string]int {
+	out := map[string]int{}
+	for _, pr := range prs {
+		if pr.Open || pr.Merged {
+			continue
+		}
+		m, ok := housekeeping.Decode(pr.Body)
+		if !ok || m.ClosedBy == housekeeping.ClosedByMeles {
+			continue
+		}
+		for _, it := range m.Items {
+			k := it.Key + "\x00" + it.Shape
+			if _, seen := out[k]; !seen {
+				out[k] = pr.Number
+			}
+		}
+	}
+	return out
 }
 
 func item(in Instance, r *facts.Repo, f policy.Finding) Item {

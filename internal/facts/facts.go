@@ -65,6 +65,33 @@ type Standards struct {
 	Readme string `json:"readme,omitempty"`
 }
 
+// PR is a pull request from the housekeeping branch.
+type PR struct {
+	Number int
+	Title  string
+	Body   string
+	Open   bool
+	Merged bool
+	Labels []string
+}
+
+// Branch is the head commit of the housekeeping branch.
+type Branch struct {
+	SHA     string
+	Parents []string
+	Message string
+	// Files the commit changes: path to blob SHA, "" for a deletion.
+	Files map[string]string
+}
+
+// Housekeeping is the state of meles's own branch and PRs in a repo.
+type Housekeeping struct {
+	PRs      []PR // newest first
+	BaseSHA  string
+	BaseTree string
+	Branch   *Branch // nil when the branch does not exist
+}
+
 // Repo is one repo's snapshot.
 type Repo struct {
 	Meta
@@ -75,6 +102,8 @@ type Repo struct {
 	Files     map[string][]byte `json:"-"`
 	Security  Security          `json:"security"`
 	Standards Standards         `json:"standards"`
+
+	Housekeeping Housekeeping `json:"-"`
 }
 
 // Has reports whether path exists on the default branch.
@@ -102,6 +131,10 @@ type Needs struct {
 	Standards bool
 	// Readme fills Standards.Readme and loads its content into Files.
 	Readme bool
+	// PRs fills Housekeeping.PRs.
+	PRs bool
+	// Branch fills Housekeeping's base and branch head.
+	Branch bool
 }
 
 // Merge returns the union of n and o.
@@ -113,5 +146,7 @@ func (n Needs) Merge(o Needs) Needs {
 		Security:  n.Security || o.Security,
 		Standards: n.Standards || o.Standards,
 		Readme:    n.Readme || o.Readme,
+		PRs:       n.PRs || o.PRs,
+		Branch:    n.Branch || o.Branch,
 	}
 }

@@ -15,12 +15,15 @@ import (
 type Collector struct {
 	GH    *github.Client
 	Blobs *ghclient.BlobStore
+	// Branch is the housekeeping branch, for Needs.PRs and Needs.Branch.
+	Branch string
 }
 
 // Collect fetches the tree, the content of needed paths, and what else n asks
 // for. Calls: tree, blobs not yet cached; with Security: repo,
 // vulnerability-alerts, private-vulnerability-reporting; with Standards: one
-// GraphQL query; with Readme: readme.
+// GraphQL query; with Readme: readme; with PRs: pulls; with Branch: branches,
+// matching-refs and, if the branch exists, its head commit.
 func (c *Collector) Collect(ctx context.Context, m Meta, n Needs) (*Repo, error) {
 	r := &Repo{Meta: m, Tree: map[string]string{}, Files: map[string][]byte{}}
 	if err := c.tree(ctx, r); err != nil {
@@ -50,6 +53,16 @@ func (c *Collector) Collect(ctx context.Context, m Meta, n Needs) (*Repo, error)
 	if n.Readme {
 		if err := c.readme(ctx, r); err != nil {
 			return nil, fmt.Errorf("readme: %w", err)
+		}
+	}
+	if n.PRs {
+		if err := c.prs(ctx, r); err != nil {
+			return nil, fmt.Errorf("pulls: %w", err)
+		}
+	}
+	if n.Branch && r.DefaultBranch != "" {
+		if err := c.branch(ctx, r); err != nil {
+			return nil, fmt.Errorf("branch: %w", err)
 		}
 	}
 	return r, nil
@@ -194,6 +207,70 @@ func (c *Collector) readme(ctx context.Context, r *Repo) error {
 	}
 	r.Standards.Readme = rc.GetPath()
 	r.Files[rc.GetPath()] = []byte(content)
+	return nil
+}
+
+func (c *Collector) prs(ctx context.Context, r *Repo) error {
+	opts := &github.PullRequestListOptions{State: "all", Head: r.Owner + ":" + c.Branch, ListOptions: github.ListOptions{PerPage: 100}}
+	for {
+		page, resp, err := c.GH.PullRequests.List(ctx, r.Owner, r.Name, opts)
+		if err != nil {
+			return err
+		}
+		for _, p := range page {
+			pr := PR{Number: p.GetNumber(), Title: p.GetTitle(), Body: p.GetBody(), Open: p.GetState() == "open", Merged: p.MergedAt != nil}
+			for _, l := range p.Labels {
+				pr.Labels = append(pr.Labels, l.GetName())
+			}
+			r.Housekeeping.PRs = append(r.Housekeeping.PRs, pr)
+		}
+		if resp.NextPage == 0 {
+			return nil
+		}
+		opts.Page = resp.NextPage
+	}
+}
+
+// branch reads the base and the housekeeping branch head. matching-refs
+// answers 200 [] with an ETag for a missing branch, so absence is free on
+// later runs; a 404 from git/ref would cost a request every run.
+func (c *Collector) branch(ctx context.Context, r *Repo) error {
+	base, _, err := c.GH.Repositories.GetBranch(ctx, r.Owner, r.Name, r.DefaultBranch, 1)
+	if err != nil {
+		return err
+	}
+	r.Housekeeping.BaseSHA = base.GetCommit().GetSHA()
+	r.Housekeeping.BaseTree = base.GetCommit().GetCommit().GetTree().GetSHA()
+
+	refs, _, err := c.GH.Git.ListMatchingRefs(ctx, r.Owner, r.Name, "heads/"+c.Branch)
+	if err != nil {
+		return err
+	}
+	for _, ref := range refs {
+		if ref.GetRef() != "refs/heads/"+c.Branch {
+			continue // matching-refs is a prefix match
+		}
+		commit, _, err := c.GH.Repositories.GetCommit(ctx, r.Owner, r.Name, ref.GetObject().GetSHA(), nil)
+		if err != nil {
+			return err
+		}
+		b := &Branch{SHA: commit.GetSHA(), Message: commit.GetCommit().GetMessage(), Files: map[string]string{}}
+		for _, p := range commit.Parents {
+			b.Parents = append(b.Parents, p.GetSHA())
+		}
+		for _, f := range commit.Files {
+			switch f.GetStatus() {
+			case "removed":
+				b.Files[f.GetFilename()] = ""
+			case "renamed":
+				b.Files[f.GetPreviousFilename()] = ""
+				b.Files[f.GetFilename()] = f.GetSHA()
+			default:
+				b.Files[f.GetFilename()] = f.GetSHA()
+			}
+		}
+		r.Housekeeping.Branch = b
+	}
 	return nil
 }
 

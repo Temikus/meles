@@ -83,6 +83,12 @@ values, so a close is handled per finding, not per PR. The `accept`
 findings become exemptions and the single comment lists them. The
 `reopen` findings come back in a fresh PR on the next run.
 
+meles keeps no state. Each PR body ends with a hidden marker listing the
+key, shape and `on_close` of every finding it carries. A finding is
+accepted while a closed, unmerged meles PR lists the same key and shape,
+and the policy still says `accept`. A PR meles closes itself is marked
+`closed_by: meles` and never counts.
+
 ## Policy packs
 
 ### deps (Renovate / Dependabot)
@@ -208,6 +214,11 @@ Found while building milestone 2 (verified against the live API):
   ETag; it uses the separate GraphQL quota). `codeowners` without `refName`
   returned null for a fork that has a CODEOWNERS file, so the default branch
   is passed explicitly. `GET /community/profile` 404s for forks.
+- A missing branch: `git/ref` answers 404, which is never cached and costs
+  a request every run. `git/matching-refs` answers `200 []` with an ETag.
+- `GET commits/<sha>` reports each changed file's blob SHA, which equals
+  `git hash-object` of the content, so "is the branch current?" needs no
+  content download.
 
 ## Decisions
 

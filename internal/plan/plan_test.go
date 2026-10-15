@@ -7,6 +7,7 @@ import (
 
 	"github.com/temikus/meles/internal/config"
 	"github.com/temikus/meles/internal/facts"
+	"github.com/temikus/meles/internal/housekeeping"
 	"github.com/temikus/meles/internal/policy"
 	"github.com/temikus/meles/internal/policy/policytest"
 )
@@ -164,5 +165,45 @@ func TestFindingOnCloseOverridesInstance(t *testing.T) {
 	items := Evaluate(insts, []*facts.Repo{policytest.Repo(nil)}, today).Repos[0].Items
 	if items[0].OnClose != config.Reopen || items[1].OnClose != config.Accept {
 		t.Errorf("on_close = %s, %s; want reopen from the finding, accept from the instance", items[0].OnClose, items[1].OnClose)
+	}
+}
+
+func TestAcceptedCloses(t *testing.T) {
+	a := policy.Finding{Kind: "k", Subject: "a", Message: "m", Fix: policy.FixCreate}
+	b := policy.Finding{Kind: "k", Subject: "b", Message: "m", Fix: policy.FixCreate}
+	marker := func(closedBy string, items ...housekeeping.Item) string {
+		return "## meles\n\n" + housekeeping.Marker{Items: items, ClosedBy: closedBy}.Encode()
+	}
+	carried := housekeeping.Item{Key: a.Key(), Shape: a.Shape(), OnClose: config.Accept}
+	for _, tc := range []struct {
+		name    string
+		onClose config.OnClose
+		pr      facts.PR
+		skip    bool
+	}{
+		{"closed by a human", config.Accept, facts.PR{Number: 7, Body: marker("", carried)}, true},
+		{"drift changed shape", config.Accept, facts.PR{Number: 7, Body: marker("", housekeeping.Item{Key: a.Key(), Shape: "other"})}, false},
+		{"policy now says reopen", config.Reopen, facts.PR{Number: 7, Body: marker("", carried)}, false},
+		{"merged", config.Accept, facts.PR{Number: 7, Merged: true, Body: marker("", carried)}, false},
+		{"still open", config.Accept, facts.PR{Number: 7, Open: true, Body: marker("", carried)}, false},
+		{"closed by meles", config.Accept, facts.PR{Number: 7, Body: marker(housekeeping.ClosedByMeles, carried)}, false},
+		{"not a meles PR", config.Accept, facts.PR{Number: 7, Body: "hand-written " + a.Key()}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			in := inst("k", "k", config.PR, config.Selector{}, stub{"k", []policy.Finding{a, b}, policy.FileChange{Path: "x"}})
+			in.Spec.OnClose = tc.onClose
+			r := policytest.Repo(nil)
+			r.Housekeeping.PRs = []facts.PR{tc.pr}
+			items := Evaluate([]Instance{in}, []*facts.Repo{r}, today).Repos[0].Items
+			if got := items[0].Action == ActionSkip; got != tc.skip {
+				t.Errorf("a: action %s note %q, want skip=%v", items[0].Action, items[0].Note, tc.skip)
+			}
+			if tc.skip && items[0].Note != "closed in #7 (accept)" {
+				t.Errorf("note = %q", items[0].Note)
+			}
+			if items[1].Action != ActionPR {
+				t.Errorf("b was not in the PR and must stay: %+v", items[1])
+			}
+		})
 	}
 }

@@ -27,7 +27,7 @@ type Transport struct {
 	// Recursive trees on larger repos 500 intermittently. Default 1s.
 	RetryWait time.Duration
 
-	requests, notModified, uncacheable, graphQL, rateUsed atomic.Int64
+	requests, notModified, uncacheable, graphQL, writes, rateUsed atomic.Int64
 }
 
 // Stats counts what the transport did.
@@ -36,6 +36,7 @@ type Stats struct {
 	NotModified int64 // of those, answered 304 and served from cache
 	Uncacheable int64 // GETs answered 2xx without an ETag; these always count
 	GraphQL     int64 // queries; uncacheable, charged to the separate GraphQL quota
+	Writes      int64 // other non-GET requests: everything that can change GitHub
 	// RateUsed is the highest X-RateLimit-Used seen for the core quota.
 	// GET /rate_limit reported 0 used for gh OAuth tokens; the headers are accurate.
 	RateUsed int64
@@ -43,7 +44,7 @@ type Stats struct {
 
 // Stats returns counts so far.
 func (t *Transport) Stats() Stats {
-	return Stats{Requests: t.requests.Load(), NotModified: t.notModified.Load(), Uncacheable: t.uncacheable.Load(), GraphQL: t.graphQL.Load(), RateUsed: t.rateUsed.Load()}
+	return Stats{Requests: t.requests.Load(), NotModified: t.notModified.Load(), Uncacheable: t.uncacheable.Load(), GraphQL: t.graphQL.Load(), Writes: t.writes.Load(), RateUsed: t.rateUsed.Load()}
 }
 
 type entry struct {
@@ -59,8 +60,11 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		base = http.DefaultTransport
 	}
 	t.requests.Add(1)
-	if strings.HasSuffix(req.URL.Path, "/graphql") {
+	switch {
+	case strings.HasSuffix(req.URL.Path, "/graphql"):
 		t.graphQL.Add(1)
+	case req.Method != http.MethodGet && req.Method != http.MethodHead:
+		t.writes.Add(1)
 	}
 	if req.Method != http.MethodGet || t.Dir == "" {
 		resp, err := t.send(base, req)
