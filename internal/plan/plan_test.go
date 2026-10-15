@@ -3,6 +3,7 @@ package plan
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/temikus/meles/internal/config"
 	"github.com/temikus/meles/internal/facts"
@@ -26,6 +27,8 @@ func (s stub) Remediate(_ *facts.Repo, f policy.Finding) (policy.Change, bool) {
 	}
 	return s.change, true
 }
+
+var today = time.Date(2026, 10, 15, 0, 0, 0, 0, time.UTC)
 
 func inst(name, kind string, mode config.Mode, sel config.Selector, p policy.Policy) Instance {
 	return Instance{Name: name, Spec: config.PolicySpec{ID: kind, Mode: mode, OnClose: config.Accept}, Selector: sel, Policy: p}
@@ -52,7 +55,7 @@ func TestActions(t *testing.T) {
 		{"check-only", config.Enforce, check, setting, ActionCheck, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			p := Evaluate([]Instance{inst("k", "k", tc.mode, config.Selector{}, stub{"k", tc.finds, tc.change})}, []*facts.Repo{policytest.Repo(nil)})
+			p := Evaluate([]Instance{inst("k", "k", tc.mode, config.Selector{}, stub{"k", tc.finds, tc.change})}, []*facts.Repo{policytest.Repo(nil)}, today)
 			items := p.Repos[0].Items
 			if len(items) != 1 || items[0].Action != tc.want || items[0].Note != tc.note {
 				t.Fatalf("items = %+v, want action %s note %q", items, tc.want, tc.note)
@@ -70,7 +73,7 @@ func TestAmbiguousInstances(t *testing.T) {
 		inst("deps.updater", "deps.updater", config.PR, config.Selector{}, stub{"deps.updater", other, nil}),
 	}
 	both := policytest.Repo(map[string]string{"go.mod": "", "pyproject.toml": ""})
-	p := Evaluate(insts, []*facts.Repo{both})
+	p := Evaluate(insts, []*facts.Repo{both}, today)
 	rp := p.Repos[0]
 	if len(rp.Errors) != 1 || !strings.Contains(rp.Errors[0], "ci.shape[go], ci.shape[python]") {
 		t.Errorf("errors = %v", rp.Errors)
@@ -93,7 +96,7 @@ func TestSelectorsAndOrder(t *testing.T) {
 	clean := policytest.Repo(nil)
 	clean.Name, clean.Archived = "archived", true
 
-	p := Evaluate(insts, []*facts.Repo{pub, priv, clean})
+	p := Evaluate(insts, []*facts.Repo{pub, priv, clean}, today)
 	var got []string
 	for _, r := range p.Repos {
 		for _, it := range r.Items {
@@ -106,5 +109,60 @@ func TestSelectorsAndOrder(t *testing.T) {
 	}
 	if p.Summary.Repos != 3 || p.Summary.ReposWithFindings != 2 || p.Summary.Findings != 3 {
 		t.Errorf("summary = %+v", p.Summary)
+	}
+}
+
+func TestExemptions(t *testing.T) {
+	finds := []policy.Finding{
+		{Kind: "k", Subject: "a", Message: "m", Fix: policy.FixSet},
+		{Kind: "k", Subject: "b", Message: "m", Fix: policy.FixSet},
+	}
+	insts := []Instance{inst("k", "k", config.Enforce, config.Selector{}, stub{"k", finds, policy.SettingChange{Setting: "s", To: true}})}
+	for _, tc := range []struct {
+		name, meles   string
+		wantA, wantB  Action
+		noteA, errors string
+	}{
+		{"none", "", ActionApply, ActionApply, "", ""},
+		{
+			"one subject", "exempt: [{policy: k, subject: a, reason: owned elsewhere, until: 2027-01-01}]",
+			ActionSkip, ActionApply, "exempt until 2027-01-01: owned elsewhere", "",
+		},
+		{"whole policy", "exempt: [{policy: k, reason: r, until: 2027-01-01}]", ActionSkip, ActionSkip, "exempt until 2027-01-01: r", ""},
+		{
+			"expired", "exempt: [{policy: k, subject: a, reason: r, until: 2026-01-01}]",
+			ActionApply, ActionApply, "exemption expired 2026-01-01", "",
+		},
+		{
+			// A broken .meles.yml must not hide drift: findings stay, the repo gets an error.
+			"invalid", "exempt: [{policy: k}]",
+			ActionApply, ActionApply, "", ".meles.yml: line 1: reason is required",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			files := map[string]string{}
+			if tc.meles != "" {
+				files[".meles.yml"] = tc.meles
+			}
+			rp := Evaluate(insts, []*facts.Repo{policytest.Repo(files)}, today).Repos[0]
+			if len(rp.Items) != 2 || rp.Items[0].Action != tc.wantA || rp.Items[1].Action != tc.wantB || rp.Items[0].Note != tc.noteA {
+				t.Errorf("items = %+v", rp.Items)
+			}
+			if got := strings.Join(rp.Errors, "|"); !strings.Contains(got, tc.errors) || (tc.errors == "" && got != "") {
+				t.Errorf("errors = %q, want %q", got, tc.errors)
+			}
+		})
+	}
+}
+
+func TestFindingOnCloseOverridesInstance(t *testing.T) {
+	finds := []policy.Finding{
+		{Kind: "k", Subject: "a", Message: "m", Fix: policy.FixCreate, OnClose: config.Reopen},
+		{Kind: "k", Subject: "b", Message: "m", Fix: policy.FixCreate},
+	}
+	insts := []Instance{inst("k", "k", config.PR, config.Selector{}, stub{"k", finds, policy.FileChange{Path: "x"}})}
+	items := Evaluate(insts, []*facts.Repo{policytest.Repo(nil)}, today).Repos[0].Items
+	if items[0].OnClose != config.Reopen || items[1].OnClose != config.Accept {
+		t.Errorf("on_close = %s, %s; want reopen from the finding, accept from the instance", items[0].OnClose, items[1].OnClose)
 	}
 }

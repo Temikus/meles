@@ -8,8 +8,10 @@ import (
 	"io/fs"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/temikus/meles/internal/config"
+	"github.com/temikus/meles/internal/exempt"
 	"github.com/temikus/meles/internal/facts"
 	"github.com/temikus/meles/internal/policy"
 	"github.com/temikus/meles/internal/policy/registry"
@@ -61,6 +63,7 @@ const (
 	ActionApply  Action = "apply"  // setting change, applied directly
 	ActionReport Action = "report" // has a fix, but mode does not allow it
 	ActionCheck  Action = "check"  // no automatic fix
+	ActionSkip   Action = "skip"   // exempted by the repo; apply leaves it alone
 )
 
 // Item is one finding with what meles would do about it.
@@ -126,11 +129,12 @@ type Plan struct {
 	Warnings   []string   `json:"warnings,omitempty"`
 }
 
-// Evaluate runs every matching instance against every repo. Pure.
-func Evaluate(insts []Instance, repos []*facts.Repo) Plan {
+// Evaluate runs every matching instance against every repo. Pure: today
+// decides which exemptions have expired.
+func Evaluate(insts []Instance, repos []*facts.Repo, today time.Time) Plan {
 	p := Plan{Version: 1, Summary: Summary{Repos: len(repos), ByAction: map[Action]int{}}}
 	for _, r := range repos {
-		rp := evaluateRepo(insts, r)
+		rp := evaluateRepo(insts, r, today)
 		if len(rp.Items) > 0 || len(rp.Errors) > 0 {
 			p.Repos = append(p.Repos, rp)
 		}
@@ -154,8 +158,12 @@ func (p *Plan) recount() {
 	}
 }
 
-func evaluateRepo(insts []Instance, r *facts.Repo) RepoPlan {
+func evaluateRepo(insts []Instance, r *facts.Repo, today time.Time) RepoPlan {
 	rp := RepoPlan{Repo: r.FullName()}
+	exemptions, err := exempt.Parse(r.Files[exempt.Path])
+	if err != nil {
+		rp.Errors = append(rp.Errors, fmt.Sprintf("%s: %v", exempt.Path, err))
+	}
 	byKind := map[string][]Instance{}
 	var kinds []string
 	for _, in := range insts {
@@ -179,7 +187,15 @@ func evaluateRepo(insts []Instance, r *facts.Repo) RepoPlan {
 		}
 		in := matched[0]
 		for _, f := range in.Policy.Evaluate(r) {
-			rp.Items = append(rp.Items, item(in, r, f))
+			it := item(in, r, f)
+			switch active, expired := exempt.Find(exemptions, f.Kind, f.Subject, today); {
+			case active != nil:
+				it.Action = ActionSkip
+				it.Note = fmt.Sprintf("exempt until %s: %s", active.Until.Format(time.DateOnly), active.Reason)
+			case expired != nil:
+				it.Note = joinNote(it.Note, "exemption expired "+expired.Until.Format(time.DateOnly))
+			}
+			rp.Items = append(rp.Items, it)
 		}
 	}
 	slices.SortStableFunc(rp.Items, func(a, b Item) int {
@@ -191,7 +207,7 @@ func evaluateRepo(insts []Instance, r *facts.Repo) RepoPlan {
 func item(in Instance, r *facts.Repo, f policy.Finding) Item {
 	it := Item{
 		Policy: in.Name, Finding: f, Key: f.Key(), Shape: f.Shape(),
-		Mode: in.Spec.Mode, OnClose: in.Spec.OnClose, Action: ActionCheck,
+		Mode: in.Spec.Mode, OnClose: cmp.Or(f.OnClose, in.Spec.OnClose), Action: ActionCheck,
 	}
 	c, ok := in.Policy.Remediate(r, f)
 	if !ok {

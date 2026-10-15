@@ -142,7 +142,9 @@ conventional-commit type, with an LLM pass for the summary paragraph.
 
 - `id` names the policy kind. A kind may appear more than once with
   disjoint selectors (two `ci.shape` entries for go and python). An
-  exemption in `.meles.yml` references the kind.
+  exemption in `.meles.yml` references the kind, and optionally one
+  `subject` (as `meles plan` prints it). `reason` and `until` are required;
+  `until` is inclusive. Exempt findings stay in the plan as `skip`.
 - Selectors are evaluated against facts, so `files: [go.mod]` is a
   marker-file match, not a language guess from GitHub's linguist.
 - Selectors exclude archived repos unless they say `archived: true`.

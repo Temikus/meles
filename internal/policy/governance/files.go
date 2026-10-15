@@ -25,8 +25,9 @@ type TemplateData struct {
 }
 
 type fileEntry struct {
-	path string
-	tmpl *template.Template
+	path    string
+	tmpl    *template.Template
+	onClose config.OnClose
 }
 
 type files struct{ entries []fileEntry }
@@ -43,10 +44,14 @@ func NewFiles(n *yaml.Node, ctl fs.FS) (policy.Policy, error) {
 			return nil, fmt.Errorf("line %d: %q is not a relative repo path", key.Line, key.Value)
 		}
 		var spec struct {
-			Template string `yaml:"template"`
+			Template string         `yaml:"template"`
+			OnClose  config.OnClose `yaml:"on_close"`
 		}
 		if err := config.DecodeStrict(n.Content[i+1], &spec); err != nil {
 			return nil, fmt.Errorf("%s: %w", key.Value, err)
+		}
+		if err := checkOnClose(spec.OnClose); err != nil {
+			return nil, fmt.Errorf("line %d: %s: %w", key.Line, key.Value, err)
 		}
 		if spec.Template == "" {
 			return nil, fmt.Errorf("line %d: %s: template is required", key.Line, key.Value)
@@ -55,7 +60,7 @@ func NewFiles(n *yaml.Node, ctl fs.FS) (policy.Policy, error) {
 		if err != nil {
 			return nil, fmt.Errorf("line %d: %s: %w", key.Line, key.Value, err)
 		}
-		p.entries = append(p.entries, fileEntry{path: key.Value, tmpl: t})
+		p.entries = append(p.entries, fileEntry{path: key.Value, tmpl: t, onClose: spec.OnClose})
 	}
 	return p, nil
 }
@@ -68,7 +73,7 @@ func (p *files) Evaluate(r *facts.Repo) []policy.Finding {
 	var out []policy.Finding
 	for _, e := range p.entries {
 		if !r.Has(e.path) {
-			out = append(out, policy.Finding{Kind: FilesKind, Subject: "file:" + e.path, Message: e.path + " is missing", Fix: policy.FixCreate})
+			out = append(out, policy.Finding{Kind: FilesKind, Subject: "file:" + e.path, Message: e.path + " is missing", Fix: policy.FixCreate, OnClose: e.onClose})
 		}
 	}
 	return out
@@ -81,6 +86,13 @@ func (p *files) Remediate(r *facts.Repo, f policy.Finding) (policy.Change, bool)
 		}
 	}
 	return nil, false
+}
+
+func checkOnClose(o config.OnClose) error {
+	if o != "" && !o.Valid() {
+		return fmt.Errorf("on_close %q must be accept or reopen", o)
+	}
+	return nil
 }
 
 func loadTemplate(ctl fs.FS, name string) (*template.Template, error) {

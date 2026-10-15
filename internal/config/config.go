@@ -175,7 +175,7 @@ func (c *Config) Validate() error {
 	if !c.Defaults.Mode.valid() {
 		add(c.line, "defaults: invalid mode %q", c.Defaults.Mode)
 	}
-	if !c.Defaults.PR.OnClose.valid() {
+	if !c.Defaults.PR.OnClose.Valid() {
 		add(c.line, "defaults: invalid on_close %q", c.Defaults.PR.OnClose)
 	}
 	for name, s := range c.Selectors {
@@ -204,7 +204,7 @@ func (c *Config) Validate() error {
 		if p.Mode != "" && !p.Mode.valid() {
 			add(p.Line, "policy %s: invalid mode %q", p.ID, p.Mode)
 		}
-		if p.OnClose != "" && !p.OnClose.valid() {
+		if p.OnClose != "" && !p.OnClose.Valid() {
 			add(p.Line, "policy %s: invalid on_close %q", p.ID, p.OnClose)
 		}
 		k := [2]string{p.ID, p.On}
@@ -220,8 +220,10 @@ func (c *Config) Validate() error {
 	return errs
 }
 
-func (m Mode) valid() bool    { return m == Observe || m == PR || m == Enforce }
-func (o OnClose) valid() bool { return o == Accept || o == Reopen }
+func (m Mode) valid() bool { return m == Observe || m == PR || m == Enforce }
+
+// Valid reports whether o is accept or reopen.
+func (o OnClose) Valid() bool { return o == Accept || o == Reopen }
 
 // Error is a config problem at a position.
 type Error struct {

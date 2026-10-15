@@ -5,7 +5,9 @@ import (
 	"context"
 	"slices"
 	"sync"
+	"time"
 
+	"github.com/temikus/meles/internal/exempt"
 	"github.com/temikus/meles/internal/facts"
 	"github.com/temikus/meles/internal/selector"
 )
@@ -17,14 +19,14 @@ type Collector interface {
 
 // Run collects facts for every repo some instance could match, then evaluates.
 // A repo that fails to collect is reported, not fatal.
-func Run(ctx context.Context, insts []Instance, metas []facts.Meta, col Collector, workers int) Plan {
+func Run(ctx context.Context, insts []Instance, metas []facts.Meta, col Collector, workers int, today time.Time) Plan {
 	type job struct {
 		meta  facts.Meta
 		needs facts.Needs
 	}
 	var jobs []job
 	for _, m := range metas {
-		var n facts.Needs
+		n := facts.Needs{Paths: []string{exempt.Path}}
 		wanted := false
 		for _, in := range insts {
 			if selector.Prefilter(in.Selector, m) {
@@ -67,7 +69,7 @@ func Run(ctx context.Context, insts []Instance, metas []facts.Meta, col Collecto
 	close(ch)
 	wg.Wait()
 
-	p := Evaluate(insts, repos)
+	p := Evaluate(insts, repos, today)
 	p.Repos = append(p.Repos, failed...)
 	slices.SortFunc(p.Repos, func(a, b RepoPlan) int { return cmp.Compare(a.Repo, b.Repo) })
 	p.Summary.Repos = len(metas)

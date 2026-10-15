@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/temikus/meles/internal/config"
 	"github.com/temikus/meles/internal/facts"
 	"github.com/temikus/meles/internal/policy"
 	"github.com/temikus/meles/internal/policy/policytest"
@@ -93,6 +94,14 @@ func TestStandardsEvaluate(t *testing.T) {
 	}
 }
 
+func TestStandardsOnClosePerEntry(t *testing.T) {
+	p := newStandards(t, "{security_policy: {template: templates/SECURITY.md, on_close: reopen}, codeowners: {template: templates/CODEOWNERS}}")
+	got := p.Evaluate(policytest.Repo(nil))
+	if len(got) != 2 || got[0].OnClose != config.Reopen || got[1].OnClose != "" {
+		t.Errorf("findings = %+v; want reopen on security_policy only", got)
+	}
+}
+
 func TestStandardsNeeds(t *testing.T) {
 	n := newStandards(t, standardsExample).Needs()
 	if !n.Standards || !n.Readme || len(n.Paths) != 0 {
@@ -133,6 +142,7 @@ func TestStandardsFactoryErrors(t *testing.T) {
 		{"unknown badge", "{readme: {badges: [sparkles]}}"},
 		{"missing template", "{security_policy: {template: templates/nope.md}}"},
 		{"old path key", "{codeowners: {path: .github/CODEOWNERS}}"},
+		{"bad on_close", "{license: {on_close: sometimes}}"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, err := NewStandards(policytest.With(t, tc.with), ctl); err == nil {

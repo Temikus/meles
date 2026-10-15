@@ -36,8 +36,8 @@ func WriteTable(w io.Writer, p Plan) error {
 		}
 	}
 	s := p.Summary
-	_, err := fmt.Fprintf(w, "\n%d findings in %d of %d repos: %d pr, %d apply, %d report, %d check. Plan only, nothing changed.\n",
-		s.Findings, s.ReposWithFindings, s.Repos, s.ByAction[ActionPR], s.ByAction[ActionApply], s.ByAction[ActionReport], s.ByAction[ActionCheck])
+	_, err := fmt.Fprintf(w, "\n%d findings in %d of %d repos: %d pr, %d apply, %d report, %d check, %d skip. Plan only, nothing changed.\n",
+		s.Findings, s.ReposWithFindings, s.Repos, s.ByAction[ActionPR], s.ByAction[ActionApply], s.ByAction[ActionReport], s.ByAction[ActionCheck], s.ByAction[ActionSkip])
 	return err
 }
 
