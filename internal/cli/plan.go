@@ -33,7 +33,7 @@ func runPlan(ctx context.Context, args []string, stdout, stderr io.Writer) error
 		return err
 	}
 
-	_, insts, warnings, err := load(*cfgPath)
+	cfg, insts, warnings, err := load(*cfgPath)
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func runPlan(ctx context.Context, args []string, stdout, stderr io.Writer) error
 	}
 
 	blobs := &ghclient.BlobStore{Dir: *cacheDir}
-	p := plan.Run(ctx, insts, metas, &facts.Collector{GH: gh, Blobs: blobs}, 4, time.Now())
+	p := plan.Run(ctx, insts, metas, &facts.Collector{GH: gh, Blobs: blobs, Branch: cfg.Defaults.PR.Branch}, 4, time.Now())
 	p.ControlRef = controlRef(ctx, filepath.Dir(*cfgPath))
 	p.Warnings = warnings
 	if v, ok := plan.RenovateValidator(); ok {
@@ -76,8 +76,8 @@ func runPlan(ctx context.Context, args []string, stdout, stderr io.Writer) error
 	}
 	if *verbose {
 		s := tr.Stats()
-		fmt.Fprintf(stderr, "api: %d requests, %d not modified (free), %d uncacheable, %d GraphQL; blobs: %d from cache\n",
-			s.Requests, s.NotModified, s.Uncacheable, s.GraphQL, blobs.Hits())
+		fmt.Fprintf(stderr, "api: %d requests, %d not modified (free), %d uncacheable, %d GraphQL, %d writes; blobs: %d from cache\n",
+			s.Requests, s.NotModified, s.Uncacheable, s.GraphQL, s.Writes, blobs.Hits())
 	}
 	if ctx.Err() != nil {
 		return ctx.Err()

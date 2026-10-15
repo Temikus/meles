@@ -9,6 +9,7 @@ import (
 
 	"github.com/temikus/meles/internal/facts"
 	"github.com/temikus/meles/internal/ghclient"
+	"github.com/temikus/meles/internal/housekeeping"
 	"github.com/temikus/meles/internal/inventory"
 )
 
@@ -36,7 +37,7 @@ func TestIntegrationCollectAndRevalidate(t *testing.T) {
 		t.Fatal(err)
 	}
 	dir := t.TempDir()
-	needs := facts.Needs{Paths: []string{"LICENSE", "README.md", "renovate.json"}, Security: true, Standards: true, Readme: true}
+	needs := facts.Needs{Paths: []string{"LICENSE", "README.md", "renovate.json"}, Security: true, Standards: true, Readme: true, PRs: true, Branch: true}
 
 	// Each pass is a fresh client over the same cache dir, like two meles runs.
 	pass := func() (*facts.Repo, ghclient.Stats, int64) {
@@ -58,7 +59,8 @@ func TestIntegrationCollectAndRevalidate(t *testing.T) {
 			t.Fatalf("inventory of %s has no %s", owner, name)
 		}
 		blobs := &ghclient.BlobStore{Dir: dir}
-		r, err := (&facts.Collector{GH: gh, Blobs: blobs}).Collect(ctx, *meta, needs)
+		// Branch "main" exercises the branch path without writing to the repo.
+		r, err := (&facts.Collector{GH: gh, Blobs: blobs, Branch: "main"}).Collect(ctx, *meta, needs)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -86,6 +88,17 @@ func TestIntegrationCollectAndRevalidate(t *testing.T) {
 	want := facts.Standards{License: true, SecurityPolicy: true, Readme: "README.md"}
 	if r.Standards != want || r2.Standards != want {
 		t.Errorf("standards = %+v then %+v, want %+v", r.Standards, r2.Standards, want)
+	}
+	hk := r.Housekeeping
+	if hk.BaseSHA == "" || hk.BaseTree == "" || len(hk.PRs) != 0 {
+		t.Errorf("housekeeping = %+v", hk)
+	}
+	if hk.Branch == nil || hk.Branch.SHA != hk.BaseSHA {
+		t.Fatalf("branch main: %+v, want head %s", hk.Branch, hk.BaseSHA)
+	}
+	// meles decides "no drift" by comparing these without fetching content.
+	if got, want := hk.Branch.Files["LICENSE"], housekeeping.BlobSHA(r.Files["LICENSE"]); got != want {
+		t.Errorf("GitHub blob SHA %s, local %s", got, want)
 	}
 	if r.Visibility == "private" && (r.Security.SecretScanning != facts.Unavailable || r.Security.PrivateVulnReporting != facts.Unavailable) {
 		t.Errorf("private repo without GHAS: security = %+v", r.Security)

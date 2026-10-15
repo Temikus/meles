@@ -195,6 +195,30 @@ func TestCountsGraphQL(t *testing.T) {
 	}
 }
 
+// Writes is how the idempotency test proves a no-drift run changed nothing.
+func TestCountsWrites(t *testing.T) {
+	ts := httptest.NewServer(&etagServer{version: 1})
+	defer ts.Close()
+	c, tr := newCached(t, t.TempDir(), "id")
+	get(t, c, ts.URL+"/repo")
+	for _, m := range []string{http.MethodPost, http.MethodPatch, http.MethodPut, http.MethodDelete} {
+		req, _ := http.NewRequest(m, ts.URL+"/repo", strings.NewReader("{}"))
+		resp, err := c.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+	}
+	resp, err := c.Post(ts.URL+"/graphql", "application/json", strings.NewReader("{}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if s := tr.Stats(); s.Writes != 4 || s.GraphQL != 1 || s.Requests != 6 {
+		t.Errorf("stats = %+v, want 4 writes and 1 GraphQL query", s)
+	}
+}
+
 func TestBlobStore(t *testing.T) {
 	bs := BlobStore{Dir: t.TempDir()}
 	if _, ok := bs.Get("abc"); ok {

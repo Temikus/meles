@@ -26,7 +26,9 @@ func Run(ctx context.Context, insts []Instance, metas []facts.Meta, col Collecto
 	}
 	var jobs []job
 	for _, m := range metas {
-		n := facts.Needs{Paths: []string{exempt.Path}}
+		// Branch facts are left out on purpose: only apply needs them, and
+		// they cost 2-3 requests per repo.
+		n := facts.Needs{Paths: []string{exempt.Path}, PRs: true}
 		wanted := false
 		for _, in := range insts {
 			if selector.Prefilter(in.Selector, m) {
