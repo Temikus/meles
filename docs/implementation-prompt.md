@@ -34,7 +34,7 @@ Constraints:
 - Implement `on_close` per finding, not per PR, as described in the
   Closed PRs section of the design.
 - Milestone 1 is the scaffold: `justfile` with `build`, `test`, `lint`,
-  `run`; GitHub Actions CI; README with build, license and coverage
+  `run`; GitHub Actions CI; README with build and license
   badges; Apache-2.0 LICENSE.
 - Tests: write the failing test first for policy evaluation and the PR
   executor. Do not stub `go-github` to the point of testing the stub.
