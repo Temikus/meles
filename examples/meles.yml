@@ -20,7 +20,7 @@ policies:
     on: all
     with:
       prefer: renovate                      # renovate | dependabot
-      extends: ["github>temikus/renovate-config"]
+      extends: ["github>Temikus/.github"]
       forbidBoth: true
 
   - id: security.features
