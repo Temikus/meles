@@ -62,6 +62,10 @@ func runApply(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 			deferred++
 			fmt.Fprintf(stdout, "%s: deferred: %s\n", name, d.Reason)
 		}
+		if d.SettingsDeferred {
+			deferred++
+			fmt.Fprintf(stdout, "%s: settings deferred: maxPerRun reached\n", name)
+		}
 		if d.Writes() {
 			writing++
 			for _, s := range d.Steps() {

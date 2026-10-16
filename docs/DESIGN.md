@@ -192,7 +192,9 @@ PR remediation + stack-aware CI shapes + release hygiene.
 
 - PRs that touch `.github/workflows/*` need the App's `workflows: write`
   permission (or `workflow` scope on a PAT). Easy to miss.
-- PR storms. Cap PRs per run, one branch per repo. Dependabot and
+- PR storms. `maxPerRun` (default 20) caps the repos per run that get a
+  new commit, a new PR or a setting change; the rest wait for the next
+  run. One branch per repo. Dependabot and
   Renovate both drew complaints for re-opening closed PRs, which is why
   `onClose` defaults to `accept`.
 - Renovate config validation: run `renovate-config-validator` on the

@@ -82,6 +82,11 @@ func TestValidate(t *testing.T) {
 			[]string{`meles.yml:5: policy ci.shape: duplicate of line 4 (same kind and selector)`},
 		},
 		{
+			"negative maxPerRun",
+			"version: 1\ndefaults: {pr: {maxPerRun: -1}}\n",
+			[]string{"defaults: maxPerRun must not be negative, got -1"},
+		},
+		{
 			"bad visibility",
 			"version: 1\nselectors: {x: {visibility: secret}}\n",
 			[]string{`selector x: invalid visibility "secret"`},

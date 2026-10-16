@@ -58,6 +58,8 @@ type Decision struct {
 	AddLabels    []string
 	DeleteBranch bool     // with Close
 	Comment      *Comment // independent of Kind
+	// SettingsDeferred means Limit held back this repo's settings.
+	SettingsDeferred bool
 }
 
 // Comment is the one note meles leaves on a PR a human closed.
@@ -185,17 +187,26 @@ func Decide(rp plan.RepoPlan, r *facts.Repo, o Options) Decision {
 	return d
 }
 
-// Limit defers new commits and new PRs beyond max per run, in order. Other
-// updates are cheap and keep going.
+// Limit defers repos beyond maxPerRun, in order. A repo counts if it gets a
+// new commit, a new PR or a setting change. Other PR updates are cheap and
+// keep going without the settings.
 func Limit(ds []Decision, maxPerRun int) []Decision {
 	n := 0
 	for i := range ds {
-		if ds[i].Kind != Write || (!ds[i].Rewrite && !ds[i].CreatePR) {
+		d := &ds[i]
+		big := d.Kind == Write && (d.Rewrite || d.CreatePR)
+		if !big && len(d.Settings) == 0 {
 			continue
 		}
-		if n++; maxPerRun > 0 && n > maxPerRun {
-			ds[i].Kind, ds[i].Reason = Deferred, "maxPerRun reached"
+		if n++; maxPerRun <= 0 || n <= maxPerRun {
+			continue
 		}
+		if big || d.Kind == Nothing {
+			d.Kind, d.Reason = Deferred, "maxPerRun reached"
+		} else {
+			d.SettingsDeferred = true
+		}
+		d.Settings = nil
 	}
 	return ds
 }
