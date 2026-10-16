@@ -251,11 +251,6 @@ func TestDecideSettings(t *testing.T) {
 	if d := Decide(rp(hello, alerts), r, opts); d.Kind != Blocked || len(d.Settings) != 1 || !d.Writes() {
 		t.Errorf("blocked PR must still apply settings: %+v", d)
 	}
-	both := Decide(rp(hello, alerts), policytest.Repo(nil), opts)
-	ds := Limit([]Decision{both, both}, 1)
-	if ds[1].Kind != Deferred || len(ds[1].Settings) != 1 || !ds[1].Writes() {
-		t.Errorf("deferred PR must still apply settings: %+v", ds[1])
-	}
 }
 
 func TestSteps(t *testing.T) {
@@ -290,6 +285,32 @@ func TestLimit(t *testing.T) {
 	got := []Kind{ds[0].Kind, ds[1].Kind, ds[2].Kind, ds[3].Kind}
 	if !slices.Equal(got, []Kind{Write, Write, Write, Deferred}) {
 		t.Errorf("kinds = %v; a label-only update does not count toward maxPerRun", got)
+	}
+}
+
+func TestLimitSettings(t *testing.T) {
+	settings := Decide(rp(alerts), policytest.Repo(nil), opts)
+	both := Decide(rp(hello, alerts), policytest.Repo(nil), opts)
+	labels := Decision{Repo: policytest.Repo(nil), Kind: Write, PR: 12, AddLabels: []string{"x"}, Settings: settings.Settings}
+	r := current(hello)
+	r.Housekeeping.Branch.Message = "fix: tweak by hand"
+	blockedPR := Decide(rp(hello, alerts), r, opts)
+
+	ds := Limit([]Decision{settings, both, settings, labels, blockedPR}, 1)
+	if ds[0].Kind != Nothing || len(ds[0].Settings) != 1 || ds[0].SettingsDeferred {
+		t.Errorf("settings within the cap must apply: %+v", ds[0])
+	}
+	if ds[1].Kind != Deferred || len(ds[1].Settings) != 0 || ds[1].Writes() {
+		t.Errorf("a repo over the cap waits, settings and all: %+v", ds[1])
+	}
+	if ds[2].Kind != Deferred || ds[2].Writes() {
+		t.Errorf("settings alone count toward the cap: %+v", ds[2])
+	}
+	if ds[3].Kind != Write || len(ds[3].Settings) != 0 || !ds[3].SettingsDeferred || !ds[3].Writes() {
+		t.Errorf("over the cap, a cheap PR update goes ahead without its settings: %+v", ds[3])
+	}
+	if ds[4].Kind != Blocked || len(ds[4].Settings) != 0 || !ds[4].SettingsDeferred {
+		t.Errorf("a blocked repo over the cap holds its settings too: %+v", ds[4])
 	}
 }
 

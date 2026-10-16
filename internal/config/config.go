@@ -178,6 +178,9 @@ func (c *Config) Validate() error {
 	if !c.Defaults.PR.OnClose.Valid() {
 		add(c.line, "defaults: invalid onClose %q", c.Defaults.PR.OnClose)
 	}
+	if c.Defaults.PR.MaxPerRun < 0 {
+		add(c.line, "defaults: maxPerRun must not be negative, got %d", c.Defaults.PR.MaxPerRun)
+	}
 	for name, s := range c.Selectors {
 		switch s.Visibility {
 		case "", "public", "private", "internal":
