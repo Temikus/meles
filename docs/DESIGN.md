@@ -116,6 +116,10 @@ itself is marked `closedBy: meles` and never counts.
   ownership header, which could break parsers. Later: record a checksum of
   what meles wrote, so meles can tell its own stale copy from a file the
   repo owns.
+- README badges are check-only on purpose. A README is free-form, so meles
+  cannot place a badge without guessing, and a CI badge must name the right
+  workflow. A fix may come later, for example appending to an existing badge
+  row once `ci.shape` knows the workflow.
 - repo settings: squash-only, delete branch on merge, no wiki/projects
 - ruleset: default branch protected, required checks, signed commits
 - `actions.pinning` is its own policy, not a shape constraint: it applies
