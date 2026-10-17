@@ -65,6 +65,8 @@ type Selector struct {
 	Topics     []string `yaml:"topics"`
 	Language   string   `yaml:"language"`
 	Name       string   `yaml:"name"`
+	// Not excludes repos it matches. Inside it, archived counts only if set.
+	Not *Selector `yaml:"not"`
 
 	line int
 }
@@ -181,16 +183,28 @@ func (c *Config) Validate() error {
 	if c.Defaults.PR.MaxPerRun < 0 {
 		add(c.line, "defaults: maxPerRun must not be negative, got %d", c.Defaults.PR.MaxPerRun)
 	}
-	for name, s := range c.Selectors {
+	checkSelector := func(prefix string, s Selector) {
 		switch s.Visibility {
 		case "", "public", "private", "internal":
 		default:
-			add(s.line, "selector %s: invalid visibility %q", name, s.Visibility)
+			add(s.line, "%sinvalid visibility %q", prefix, s.Visibility)
 		}
 		if s.Name != "" {
 			if _, err := filepath.Match(s.Name, ""); err != nil {
-				add(s.line, "selector %s: invalid name glob %q", name, s.Name)
+				add(s.line, "%sinvalid name glob %q", prefix, s.Name)
 			}
+		}
+	}
+	for name, s := range c.Selectors {
+		checkSelector("selector "+name+": ", s)
+		switch n := s.Not; {
+		case n == nil:
+		case n.Not != nil:
+			add(n.line, "selector %s: not: cannot contain not", name)
+		case n.empty():
+			add(n.line, "selector %s: not: is empty, so it would exclude every repo", name)
+		default:
+			checkSelector("selector "+name+": not: ", *n)
 		}
 	}
 	seen := map[[2]string]int{}
@@ -221,6 +235,11 @@ func (c *Config) Validate() error {
 		return nil
 	}
 	return errs
+}
+
+func (s Selector) empty() bool {
+	return s.Archived == nil && s.Fork == nil && s.Visibility == "" && len(s.Files) == 0 &&
+		len(s.Topics) == 0 && s.Language == "" && s.Name == "" && s.Not == nil
 }
 
 func (m Mode) valid() bool { return m == Observe || m == PR || m == Enforce }

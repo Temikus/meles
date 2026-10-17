@@ -22,6 +22,12 @@ type Policy interface {
 	Remediate(r *facts.Repo, f Finding) (Change, bool)
 }
 
+// Claimer is a policy whose instances may match the same repo, as long as
+// no two claim the same name. Other kinds allow one instance per repo.
+type Claimer interface {
+	Claims() []string
+}
+
 // Factory builds a policy from its `with:` block. It may read templates from
 // the control repo; that is the only I/O a policy gets.
 type Factory func(with *yaml.Node, ctl fs.FS) (Policy, error)

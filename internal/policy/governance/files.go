@@ -67,6 +67,15 @@ func NewFiles(n *yaml.Node, ctl fs.FS) (policy.Policy, error) {
 
 func (*files) Kind() string { return FilesKind }
 
+// Claims is the paths the entries manage.
+func (p *files) Claims() []string {
+	out := make([]string, len(p.entries))
+	for i, e := range p.entries {
+		out[i] = e.path
+	}
+	return out
+}
+
 func (*files) Needs() facts.Needs { return facts.Needs{} }
 
 func (p *files) Evaluate(r *facts.Repo) []policy.Finding {

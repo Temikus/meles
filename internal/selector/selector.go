@@ -11,10 +11,31 @@ import (
 )
 
 // Prefilter checks every field except files, so it can run on the repo
-// listing before the tree is fetched.
+// listing before the tree is fetched. A not with files waits for Match.
 func Prefilter(s config.Selector, m facts.Meta) bool {
-	wantArchived := s.Archived != nil && *s.Archived
-	if m.Archived != wantArchived {
+	if !meta(s, m, true) {
+		return false
+	}
+	return s.Not == nil || len(s.Not.Files) > 0 || !meta(*s.Not, m, false)
+}
+
+// Match checks every field. Files entries are tree paths or path.Match globs.
+func Match(s config.Selector, r *facts.Repo) bool {
+	if !meta(s, r.Meta, true) || !files(s, r) {
+		return false
+	}
+	return s.Not == nil || !meta(*s.Not, r.Meta, false) || !files(*s.Not, r)
+}
+
+// meta checks the fields known before the tree is fetched. With implicit,
+// an unset archived means "not archived".
+func meta(s config.Selector, m facts.Meta, implicit bool) bool {
+	switch {
+	case s.Archived != nil:
+		if m.Archived != *s.Archived {
+			return false
+		}
+	case implicit && m.Archived:
 		return false
 	}
 	if s.Fork != nil && m.Fork != *s.Fork {
@@ -37,11 +58,7 @@ func Prefilter(s config.Selector, m facts.Meta) bool {
 	return true
 }
 
-// Match checks every field. Files entries are tree paths or path.Match globs.
-func Match(s config.Selector, r *facts.Repo) bool {
-	if !Prefilter(s, r.Meta) {
-		return false
-	}
+func files(s config.Selector, r *facts.Repo) bool {
 	if len(s.Files) == 0 {
 		return true
 	}

@@ -43,12 +43,27 @@ func TestMatch(t *testing.T) {
 		{"name glob", config.Selector{Name: "svc-*"}, repo(nil), true},
 		{"name glob miss", config.Selector{Name: "lib-*"}, repo(nil), false},
 		{"fields AND", config.Selector{Visibility: "public", Files: []string{"Cargo.toml"}}, repo(nil), false},
+		{"not excludes", config.Selector{Not: &config.Selector{Files: []string{"go.mod"}}}, repo(nil), false},
+		{"not misses", config.Selector{Not: &config.Selector{Files: []string{"Cargo.toml"}}}, repo(nil), true},
+		{"not fields AND", config.Selector{Not: &config.Selector{Visibility: "public", Files: []string{"Cargo.toml"}}}, repo(nil), true},
+		{"not leaves archived to the outer selector", config.Selector{Archived: ptr(true), Not: &config.Selector{Topics: []string{"infra"}}}, repo(func(r *facts.Repo) { r.Archived = true }), false},
+		{"not fork", config.Selector{Not: &config.Selector{Fork: ptr(true)}}, repo(func(r *facts.Repo) { r.Fork = true }), false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := Match(tc.sel, tc.repo); got != tc.want {
 				t.Errorf("Match = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestPrefilterNot(t *testing.T) {
+	m := repo(nil).Meta
+	if Prefilter(config.Selector{Not: &config.Selector{Visibility: "public"}}, m) {
+		t.Error("Prefilter must apply not when it needs no tree")
+	}
+	if !Prefilter(config.Selector{Not: &config.Selector{Visibility: "public", Files: []string{"go.mod"}}}, m) {
+		t.Error("Prefilter must not reject on a not with files: the tree is not fetched yet")
 	}
 }
 

@@ -84,6 +84,46 @@ func TestAmbiguousInstances(t *testing.T) {
 	}
 }
 
+// claimer is a stub whose instances may overlap.
+type claimer struct {
+	stub
+	claims []string
+}
+
+func (c claimer) Claims() []string { return c.claims }
+
+func TestOverlappingClaimers(t *testing.T) {
+	f := func(s string) []policy.Finding {
+		return []policy.Finding{{Kind: "governance.files", Subject: s, Message: "m"}}
+	}
+	lint := claimer{stub{"governance.files", f("file:.golangci.yml"), nil}, []string{".golangci.yml"}}
+	review := claimer{stub{"governance.files", f("file:review.yml"), nil}, []string{"review.yml"}}
+	clash := claimer{stub{"governance.files", nil, nil}, []string{"review.yml"}}
+	goSel, privSel := config.Selector{Files: []string{"go.mod"}}, config.Selector{Visibility: "private"}
+	repo := policytest.Repo(map[string]string{"go.mod": ""})
+	repo.Visibility = "private"
+
+	p := Evaluate([]Instance{
+		inst("governance.files[go]", "governance.files", config.PR, goSel, lint),
+		inst("governance.files[private]", "governance.files", config.PR, privSel, review),
+	}, []*facts.Repo{repo}, today)
+	rp := p.Repos[0]
+	if len(rp.Errors) != 0 || len(rp.Items) != 2 {
+		t.Errorf("disjoint claims must both run: errors %v, items %+v", rp.Errors, rp.Items)
+	}
+
+	// A shared path is an error even when neither entry has a finding.
+	p = Evaluate([]Instance{
+		inst("governance.files[go]", "governance.files", config.PR, goSel, clash),
+		inst("governance.files[private]", "governance.files", config.PR, privSel, review),
+	}, []*facts.Repo{repo}, today)
+	rp = p.Repos[0]
+	want := "governance.files[go] and governance.files[private] both manage review.yml; skipped"
+	if len(rp.Errors) != 1 || rp.Errors[0] != want || len(rp.Items) != 0 {
+		t.Errorf("errors = %q, items %+v; want %q", rp.Errors, rp.Items, want)
+	}
+}
+
 func TestSelectorsAndOrder(t *testing.T) {
 	f := func(s string) []policy.Finding { return []policy.Finding{{Kind: "k", Subject: s, Message: "m"}} }
 	insts := []Instance{
