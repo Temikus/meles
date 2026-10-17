@@ -1,6 +1,7 @@
 package governance
 
 import (
+	"slices"
 	"testing"
 	"testing/fstest"
 
@@ -99,6 +100,13 @@ func TestFilesFactoryErrors(t *testing.T) {
 				t.Error("want error")
 			}
 		})
+	}
+}
+
+func TestFilesClaimPaths(t *testing.T) {
+	c, ok := newFiles(t, filesExample).(policy.Claimer)
+	if got := []string{".editorconfig", ".github/CODEOWNERS"}; !ok || !slices.Equal(c.Claims(), got) {
+		t.Errorf("governance.files must claim its paths in config order, want %q", got)
 	}
 }
 

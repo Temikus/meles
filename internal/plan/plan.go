@@ -179,41 +179,72 @@ func evaluateRepo(insts []Instance, r *facts.Repo, today time.Time) RepoPlan {
 	}
 	for _, kind := range kinds {
 		matched := byKind[kind]
-		if len(matched) > 1 {
-			names := make([]string, len(matched))
-			for i, m := range matched {
-				names[i] = m.Name
-			}
-			rp.Errors = append(rp.Errors, fmt.Sprintf("matches %s; selectors for one kind must not overlap, skipped", strings.Join(names, ", ")))
+		if msg := overlap(matched); msg != "" {
+			rp.Errors = append(rp.Errors, msg)
 			continue
 		}
-		in := matched[0]
-		for _, f := range in.Policy.Evaluate(r) {
-			it := item(in, r, f)
-			switch active, expired := exempt.Find(exemptions, f.Kind, f.Subject, today); {
-			case active != nil:
-				it.Action = ActionSkip
-				it.Note = fmt.Sprintf("exempt until %s: %s", active.Until.Format(time.DateOnly), active.Reason)
-			case expired != nil:
-				it.Note = joinNote(it.Note, "exemption expired "+expired.Until.Format(time.DateOnly))
-			}
-			if pr, ok := accepted[it.Key+"\x00"+it.Shape]; ok && it.Action != ActionSkip && it.OnClose == config.Accept {
-				// An accept holds for a year, so like an exemption it cannot hide a finding for ever.
-				until := day(pr.ClosedAt).AddDate(1, 0, 0)
-				if day(today).After(until) {
-					it.Note = joinNote(it.Note, fmt.Sprintf("accept from #%d expired %s", pr.Number, until.Format(time.DateOnly)))
-				} else {
-					it.Action = ActionSkip
-					it.Note = fmt.Sprintf("closed in #%d (accept until %s)", pr.Number, until.Format(time.DateOnly))
-				}
-			}
-			rp.Items = append(rp.Items, it)
+		for _, in := range matched {
+			rp.Items = append(rp.Items, evaluateInstance(in, r, exemptions, accepted, today)...)
 		}
 	}
 	slices.SortStableFunc(rp.Items, func(a, b Item) int {
 		return cmp.Or(cmp.Compare(a.Policy, b.Policy), cmp.Compare(a.Finding.Subject, b.Finding.Subject))
 	})
 	return rp
+}
+
+// evaluateInstance turns one instance's findings into items, applying
+// exemptions and accepted closes.
+func evaluateInstance(in Instance, r *facts.Repo, exemptions []exempt.Exemption, accepted map[string]facts.PR, today time.Time) []Item {
+	var out []Item
+	for _, f := range in.Policy.Evaluate(r) {
+		it := item(in, r, f)
+		switch active, expired := exempt.Find(exemptions, f.Kind, f.Subject, today); {
+		case active != nil:
+			it.Action = ActionSkip
+			it.Note = fmt.Sprintf("exempt until %s: %s", active.Until.Format(time.DateOnly), active.Reason)
+		case expired != nil:
+			it.Note = joinNote(it.Note, "exemption expired "+expired.Until.Format(time.DateOnly))
+		}
+		if pr, ok := accepted[it.Key+"\x00"+it.Shape]; ok && it.Action != ActionSkip && it.OnClose == config.Accept {
+			// An accept holds for a year, so like an exemption it cannot hide a finding for ever.
+			until := day(pr.ClosedAt).AddDate(1, 0, 0)
+			if day(today).After(until) {
+				it.Note = joinNote(it.Note, fmt.Sprintf("accept from #%d expired %s", pr.Number, until.Format(time.DateOnly)))
+			} else {
+				it.Action = ActionSkip
+				it.Note = fmt.Sprintf("closed in #%d (accept until %s)", pr.Number, until.Format(time.DateOnly))
+			}
+		}
+		out = append(out, it)
+	}
+	return out
+}
+
+// overlap explains why instances of one kind cannot all run on a repo, or
+// returns "". Only Claimers with disjoint claims may share a repo.
+func overlap(matched []Instance) string {
+	if len(matched) < 2 {
+		return ""
+	}
+	owner := map[string]string{}
+	for _, in := range matched {
+		c, ok := in.Policy.(policy.Claimer)
+		if !ok {
+			names := make([]string, len(matched))
+			for i, m := range matched {
+				names[i] = m.Name
+			}
+			return fmt.Sprintf("matches %s; selectors for one kind must not overlap, skipped", strings.Join(names, ", "))
+		}
+		for _, claim := range c.Claims() {
+			if first, dup := owner[claim]; dup {
+				return fmt.Sprintf("%s and %s both manage %s; skipped", first, in.Name, claim)
+			}
+			owner[claim] = in.Name
+		}
+	}
+	return ""
 }
 
 // acceptedCloses maps key and shape to the newest meles PR a human closed

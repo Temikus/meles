@@ -153,7 +153,10 @@ conventional-commit type, with an LLM pass for the summary paragraph.
 ## Config semantics
 
 - `id` names the policy kind. A kind may appear more than once with
-  disjoint selectors (two `ci.shape` entries for go and python). An
+  disjoint selectors (two `ci.shape` entries for go and python).
+  `governance.files` entries may overlap, so one repo can get files from
+  several, but two entries that match one repo must not name the same
+  path. An
   exemption in `.meles.yml` references the kind, and optionally one
   `subject` (as `meles plan` prints it). `reason` and `until` are required;
   `until` is inclusive. Exempt findings stay in the plan as `skip`.
@@ -164,6 +167,9 @@ conventional-commit type, with an LLM pass for the summary paragraph.
 - Selector fields combine with AND; items in a list combine with OR, so
   `files: [go.mod, go.work]` matches either. `files` entries are tree
   paths or `path.Match` globs; `name` is a glob.
+- `not:` holds a selector whose matches are excluded, so
+  `{ visibility: private, not: { files: [go.mod] } }` is private repos
+  without Go. Inside `not`, `archived` counts only if set.
 - Templates and shapes are paths relative to the control repo. The PR
   body cites the control-repo commit they were rendered from.
 

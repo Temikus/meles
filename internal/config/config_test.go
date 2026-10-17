@@ -87,6 +87,15 @@ func TestValidate(t *testing.T) {
 			[]string{"defaults: maxPerRun must not be negative, got -1"},
 		},
 		{
+			"bad not",
+			"version: 1\nselectors:\n  a: {not: {}}\n  b: {not: {not: {fork: true}}}\n  c: {not: {visibility: secret}}\n",
+			[]string{
+				"meles.yml:3: selector a: not: is empty, so it would exclude every repo",
+				"meles.yml:4: selector b: not: cannot contain not",
+				`meles.yml:5: selector c: not: invalid visibility "secret"`,
+			},
+		},
+		{
 			"bad visibility",
 			"version: 1\nselectors: {x: {visibility: secret}}\n",
 			[]string{`selector x: invalid visibility "secret"`},
