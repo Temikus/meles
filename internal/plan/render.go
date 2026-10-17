@@ -30,15 +30,45 @@ func WriteTable(w io.Writer, p Plan) error {
 	if err := tw.Flush(); err != nil {
 		return err
 	}
+	failed := 0
 	for _, rp := range p.Repos {
 		for _, e := range rp.Errors {
 			fmt.Fprintf(w, "error: %s: %s\n", rp.Repo, e)
 		}
+		if len(rp.Errors) > 0 {
+			failed++
+		}
 	}
-	s := p.Summary
-	_, err := fmt.Fprintf(w, "\n%d findings in %d of %d repos: %d pr, %d apply, %d report, %d check, %d skip.\n",
-		s.Findings, s.ReposWithFindings, s.Repos, s.ByAction[ActionPR], s.ByAction[ActionApply], s.ByAction[ActionReport], s.ByAction[ActionCheck], s.ByAction[ActionSkip])
+	_, err := fmt.Fprintf(w, "\n%s\n", summaryLine(p.Summary, failed))
 	return err
+}
+
+// summaryLine leads with the repos checked so a clean run does not read as
+// an empty one. Zero action counts are left out.
+func summaryLine(s Summary, failed int) string {
+	line := "Checked " + count(s.Repos, "repo") + ": "
+	if s.Findings == 0 {
+		line += "no findings"
+	} else {
+		var acts []string
+		for _, a := range []Action{ActionPR, ActionApply, ActionReport, ActionCheck, ActionSkip} {
+			if n := s.ByAction[a]; n > 0 {
+				acts = append(acts, fmt.Sprintf("%d %s", n, a))
+			}
+		}
+		line += fmt.Sprintf("%s in %s (%s)", count(s.Findings, "finding"), count(s.ReposWithFindings, "repo"), strings.Join(acts, ", "))
+	}
+	if failed > 0 {
+		line += fmt.Sprintf(", %d failed", failed)
+	}
+	return line + "."
+}
+
+func count(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return fmt.Sprintf("%d %ss", n, noun)
 }
 
 // WriteJSON prints the plan as indented JSON.

@@ -91,3 +91,28 @@ func TestValidateIgnoresPreexistingErrors(t *testing.T) {
 		t.Errorf("invalid %q note %q: errors already in the repo must not block the change", it.Invalid, it.Note)
 	}
 }
+
+func TestSummaryLine(t *testing.T) {
+	for _, tc := range []struct {
+		s    Summary
+		errs int
+		want string
+	}{
+		{Summary{Repos: 1}, 0, "Checked 1 repo: no findings."},
+		{Summary{Repos: 3}, 1, "Checked 3 repos: no findings, 1 failed."},
+		{
+			Summary{Repos: 5, Findings: 4, ReposWithFindings: 2, ByAction: map[Action]int{ActionPR: 3, ActionCheck: 1}},
+			0,
+			"Checked 5 repos: 4 findings in 2 repos (3 pr, 1 check).",
+		},
+		{
+			Summary{Repos: 2, Findings: 1, ReposWithFindings: 1, ByAction: map[Action]int{ActionSkip: 1}},
+			2,
+			"Checked 2 repos: 1 finding in 1 repo (1 skip), 2 failed.",
+		},
+	} {
+		if got := summaryLine(tc.s, tc.errs); got != tc.want {
+			t.Errorf("summaryLine(%+v, %d) = %q, want %q", tc.s, tc.errs, got, tc.want)
+		}
+	}
+}
