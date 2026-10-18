@@ -37,6 +37,28 @@ func List(ctx context.Context, gh *github.Client, login string, owners []string)
 	return out, nil
 }
 
+// ListInstallation returns the repos an App installation can see. admin says
+// whether the App has the Administration permission, which decides whether
+// security settings are readable.
+func ListInstallation(ctx context.Context, gh *github.Client, admin bool) ([]facts.Meta, error) {
+	opt := &github.ListOptions{PerPage: 100}
+	repos, err := paginate(func(page int) ([]*github.Repository, *github.Response, error) {
+		opt.Page = page
+		l, resp, err := gh.Apps.ListRepos(ctx, opt)
+		return l.GetRepositories(), resp, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list installation repos: %w", err)
+	}
+	out := make([]facts.Meta, 0, len(repos))
+	for _, r := range repos {
+		m := Meta(r)
+		m.Admin = admin
+		out = append(out, m)
+	}
+	return out, nil
+}
+
 func listOwner(ctx context.Context, gh *github.Client, login, owner string) ([]*github.Repository, error) {
 	if strings.EqualFold(owner, login) {
 		opt := &github.RepositoryListByAuthenticatedUserOptions{Affiliation: "owner", ListOptions: github.ListOptions{PerPage: 100}}
