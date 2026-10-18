@@ -99,20 +99,31 @@ func TestSummaryLine(t *testing.T) {
 		want string
 	}{
 		{Summary{Repos: 1}, 0, "Checked 1 repo: no findings."},
-		{Summary{Repos: 3}, 1, "Checked 3 repos: no findings, 1 failed."},
+		{Summary{Repos: 3}, 1, "Checked 2 of 3 repos: no findings, 1 failed."},
 		{
 			Summary{Repos: 5, Findings: 4, ReposWithFindings: 2, ByAction: map[Action]int{ActionPR: 3, ActionCheck: 1}},
 			0,
 			"Checked 5 repos: 4 findings in 2 repos (3 pr, 1 check).",
 		},
 		{
-			Summary{Repos: 2, Findings: 1, ReposWithFindings: 1, ByAction: map[Action]int{ActionSkip: 1}},
+			Summary{Repos: 3, Findings: 1, ReposWithFindings: 1, ByAction: map[Action]int{ActionSkip: 1}},
 			2,
-			"Checked 2 repos: 1 finding in 1 repo (1 skip), 2 failed.",
+			"Checked 1 of 3 repos: 1 finding in 1 repo (1 skip), 2 failed.",
 		},
 	} {
 		if got := summaryLine(tc.s, tc.errs); got != tc.want {
 			t.Errorf("summaryLine(%+v, %d) = %q, want %q", tc.s, tc.errs, got, tc.want)
 		}
+	}
+}
+
+func TestSummaryChanges(t *testing.T) {
+	s := Summary{ByAction: map[Action]int{ActionReport: 2, ActionCheck: 1}}
+	if s.Changes() != 0 {
+		t.Errorf("report and check items are not changes, got %d", s.Changes())
+	}
+	s.ByAction[ActionPR], s.ByAction[ActionApply] = 1, 2
+	if s.Changes() != 3 {
+		t.Errorf("Changes() = %d, want 3", s.Changes())
 	}
 }

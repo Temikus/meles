@@ -44,9 +44,13 @@ func WriteTable(w io.Writer, p Plan) error {
 }
 
 // summaryLine leads with the repos checked so a clean run does not read as
-// an empty one. Zero action counts are left out.
+// an empty one. Failed repos do not count as checked. Zero action counts are
+// left out.
 func summaryLine(s Summary, failed int) string {
 	line := "Checked " + count(s.Repos, "repo") + ": "
+	if failed > 0 {
+		line = fmt.Sprintf("Checked %d of %s: ", s.Repos-failed, count(s.Repos, "repo"))
+	}
 	if s.Findings == 0 {
 		line += "no findings"
 	} else {
