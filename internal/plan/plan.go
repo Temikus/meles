@@ -121,6 +121,9 @@ type Summary struct {
 	ByAction          map[Action]int `json:"byAction"`
 }
 
+// Changes counts the items apply would write: file changes and settings.
+func (s Summary) Changes() int { return s.ByAction[ActionPR] + s.ByAction[ActionApply] }
+
 // Plan is the output of `meles plan`.
 type Plan struct {
 	Version    int        `json:"version"`

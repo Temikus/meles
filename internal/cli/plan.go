@@ -135,6 +135,9 @@ func runPlan(ctx context.Context, args []string, stdout, stderr io.Writer) error
 	if err := plan.WriteTable(stdout, r.plan); err != nil {
 		return err
 	}
+	if r.plan.Summary.Changes() == 0 {
+		return nil
+	}
 	_, err = fmt.Fprintln(stdout, "Plan only, nothing changed. Run meles apply to make these changes.")
 	return err
 }

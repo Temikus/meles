@@ -1,6 +1,6 @@
 # meles design notes (2026-10-14)
 
-Status: milestones 1 and 2 implemented (read-only `meles plan`). Prototype screens live in the Paper
+Status: milestones 1 to 3 implemented (`meles plan` and `meles apply`). Prototype screens live in the Paper
 file "meles · workflow prototypes" (five artboards: how it works, fleet
 dashboard, repo plan to PR, CLI plan, release notes).
 
