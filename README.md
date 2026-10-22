@@ -42,7 +42,9 @@ drift makes no writes. A repo opts out in its own `.meles.yml`; see
 [examples/.meles.yml](examples/.meles.yml).
 
 `plan` is the default command. The token comes from `GH_TOKEN`,
-`GITHUB_TOKEN`, or `gh auth token`. Responses are cached by ETag under
+`GITHUB_TOKEN`, or `gh auth token`. With `MELES_APP_ID` and
+`MELES_APP_PRIVATE_KEY` (the PEM contents) set, meles signs in as that
+GitHub App instead. Responses are cached by ETag under
 your user cache directory, so repeat runs cost little rate limit.
 
 Implemented policies: `deps.updater`, `security.features`,
