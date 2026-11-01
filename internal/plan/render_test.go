@@ -127,3 +127,26 @@ func TestSummaryChanges(t *testing.T) {
 		t.Errorf("Changes() = %d, want 3", s.Changes())
 	}
 }
+
+func TestDemoteSettings(t *testing.T) {
+	p := Plan{Summary: Summary{ByAction: map[Action]int{}}, Repos: []RepoPlan{{Repo: "acme/widget", Items: []Item{
+		{Action: ActionApply, Change: policy.SettingChange{Setting: "security.secretScanning", To: true}},
+		{Action: ActionPR, Change: policy.FileChange{Path: "SECURITY.md"}},
+		{Action: ActionReport, Note: "settings apply only with mode: enforce", Change: policy.SettingChange{Setting: "security.pushProtection", To: true}},
+	}}}}
+	p.recount()
+	p.DemoteSettings("needs write")
+	items := p.Repos[0].Items
+	if items[0].Action != ActionReport || items[0].Note != "needs write" {
+		t.Errorf("setting item = %+v, want report with the reason", items[0])
+	}
+	if items[1].Action != ActionPR || items[1].Note != "" {
+		t.Errorf("file item = %+v, want unchanged", items[1])
+	}
+	if items[2].Note != "settings apply only with mode: enforce" {
+		t.Errorf("already-report item = %+v, want its note kept", items[2])
+	}
+	if p.Summary.ByAction[ActionApply] != 0 || p.Summary.ByAction[ActionReport] != 2 {
+		t.Errorf("summary = %+v, want it recounted", p.Summary.ByAction)
+	}
+}

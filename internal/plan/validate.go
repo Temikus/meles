@@ -77,6 +77,19 @@ func (p *Plan) Block(match func(path string) bool, reason string) {
 	}
 }
 
+// DemoteSettings turns setting changes apply would make into reports, for
+// when the token cannot write settings.
+func (p *Plan) DemoteSettings(reason string) {
+	for i := range p.Repos {
+		for j := range p.Repos[i].Items {
+			if it := &p.Repos[i].Items[j]; it.Action == ActionApply {
+				it.Action, it.Note = ActionReport, reason
+			}
+		}
+	}
+	p.recount()
+}
+
 // Validate runs validators over file changes and marks failures Invalid.
 // A file that already fails before the change is noted, not blocked: the
 // error is not meles's, and a stale validator rejects newer options.
