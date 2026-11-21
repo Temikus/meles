@@ -172,6 +172,7 @@ func runPlan(ctx context.Context, args []string, stdout, stderr io.Writer) error
 	if *f.verbose {
 		r.printStats(stderr)
 	}
+	writeJobSummary(stderr, "meles plan", r.plan, nil)
 	if *asJSON {
 		return plan.WriteJSON(stdout, r.plan)
 	}
