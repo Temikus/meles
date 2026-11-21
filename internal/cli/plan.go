@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -64,29 +65,43 @@ func pipeline(ctx context.Context, f *pipelineFlags, needs facts.Needs, stderr i
 	for _, w := range warnings {
 		fmt.Fprintln(stderr, "warning:", w)
 	}
-	token, err := ghclient.Token(ctx)
+	app, err := ghclient.AppFromEnv()
 	if err != nil {
 		return nil, err
 	}
-	bare, _, err := ghclient.New(token, ghclient.Options{})
-	if err != nil {
-		return nil, err
-	}
-	login, err := inventory.Login(ctx, bare)
-	if err != nil {
-		return nil, err
-	}
-	gh, tr, err := ghclient.New(token, ghclient.Options{CacheDir: *f.cacheDir, Identity: "user:" + login})
-	if err != nil {
-		return nil, err
-	}
-	owners := f.owners
-	if len(owners) == 0 {
-		owners = stringList{login}
-	}
-	metas, err := inventory.List(ctx, gh, login, owners)
-	if err != nil {
-		return nil, err
+	var (
+		gh    *github.Client
+		tr    *ghclient.Transport
+		metas []facts.Meta
+		inst  ghclient.Installation
+	)
+	if app != nil {
+		if len(f.owners) > 1 {
+			return nil, errors.New("as a GitHub App, meles runs on one installation; pass at most one --owner")
+		}
+		owner := ""
+		if len(f.owners) == 1 {
+			owner = f.owners[0]
+		}
+		if inst, err = app.FindInstallation(ctx, owner, ""); err != nil {
+			return nil, err
+		}
+		if gh, tr, err = ghclient.NewApp(app, inst, ghclient.Options{CacheDir: *f.cacheDir}); err != nil {
+			return nil, err
+		}
+		var dropped []string
+		insts, dropped = appInstances(inst, insts)
+		for _, w := range dropped {
+			fmt.Fprintln(stderr, "warning:", w)
+		}
+		warnings = append(warnings, dropped...)
+		if metas, err = inventory.ListInstallation(ctx, gh, inst.Administration != ""); err != nil {
+			return nil, err
+		}
+	} else {
+		if gh, tr, metas, err = userSession(ctx, f); err != nil {
+			return nil, err
+		}
 	}
 	metas = filterRepos(metas, f.repos)
 
@@ -103,10 +118,38 @@ func pipeline(ctx context.Context, f *pipelineFlags, needs facts.Needs, stderr i
 			p.Block(plan.IsRenovateConfig, "renovate-config-validator is not installed; apply refuses unvalidated Renovate configs")
 		}
 	}
-	if scopes, known := tr.Scopes(); known && !slices.Contains(scopes, "workflow") {
+	if app != nil {
+		restrictToApp(inst, &p)
+	} else if scopes, known := tr.Scopes(); known && !slices.Contains(scopes, "workflow") {
 		p.Block(plan.IsWorkflow, "the token lacks the workflow scope that changes under .github/workflows/ need")
 	}
 	return &pipelineRun{cfg: cfg, gh: gh, tr: tr, blobs: blobs, plan: p, repos: repos}, ctx.Err()
+}
+
+// userSession signs in with a user token and lists the owners' repos.
+func userSession(ctx context.Context, f *pipelineFlags) (*github.Client, *ghclient.Transport, []facts.Meta, error) {
+	token, err := ghclient.Token(ctx)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	bare, _, err := ghclient.New(token, ghclient.Options{})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	login, err := inventory.Login(ctx, bare)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	gh, tr, err := ghclient.New(token, ghclient.Options{CacheDir: *f.cacheDir, Identity: "user:" + login})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	owners := f.owners
+	if len(owners) == 0 {
+		owners = stringList{login}
+	}
+	metas, err := inventory.List(ctx, gh, login, owners)
+	return gh, tr, metas, err
 }
 
 func (r *pipelineRun) printStats(stderr io.Writer) {
