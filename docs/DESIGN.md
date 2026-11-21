@@ -1,6 +1,7 @@
 # meles design notes (2026-10-14)
 
-Status: milestones 1 to 3 implemented (`meles plan` and `meles apply`). Prototype screens live in the Paper
+Status: milestones 1 to 4 implemented (`meles plan`, `meles apply`, and
+scheduled runs from a control repo). Prototype screens live in the Paper
 file "meles · workflow prototypes" (five artboards: how it works, fleet
 dashboard, repo plan to PR, CLI plan, release notes).
 
@@ -22,9 +23,9 @@ Goal: "install it, write policies, it works" with nothing to host.
 2. A control repo holds `meles.yml`, templates and shapes: the owner's
    `.github` repo, or a dedicated `.meles` repo to keep it separate. meles
    never assumes `<owner>/meles`.
-3. A workflow in the control repo runs on cron + `workflow_dispatch`,
-   mints an installation token with `actions/create-github-app-token`,
-   and runs the `meles` binary.
+3. A workflow in the control repo runs on cron + `workflow_dispatch` and
+   calls the reusable workflow in this repo, which runs the `meles` binary
+   with the App's ID and private key. meles signs in itself.
 
 Later, optional: hosted mode that receives webhooks (needed for
 event-driven things like release notes on `release.published`).
@@ -241,6 +242,15 @@ Found while building milestone 3:
   old state and write again; the next run settles it.
 - `apply` asks for approval like `tofu apply`: only `yes` counts, and
   `--yes` skips the prompt for CI. A stray `--repo` cannot write unseen.
+
+Found while building milestone 4:
+
+- The workflow cannot hand meles a token from
+  `actions/create-github-app-token`. meles needs the App key to read what
+  the installation may do, and an installation token cannot call `GET /user`.
+- The ETag cache is not kept between Actions runs. A fork PR can restore
+  `actions/cache` entries from a public control repo, and the cache holds
+  file contents from private repos. Each run pays the full request count.
 
 ## Decisions
 

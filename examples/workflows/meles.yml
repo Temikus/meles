@@ -1,0 +1,25 @@
+# Copy to .github/workflows/meles.yml in the control repo, next to meles.yml.
+name: meles
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+    inputs:
+      command:
+        description: plan never writes
+        type: choice
+        options: [plan, apply]
+        default: plan
+
+permissions:
+  contents: read
+
+jobs:
+  meles:
+    uses: Temikus/meles/.github/workflows/meles.yml@main
+    with:
+      command: ${{ inputs.command || 'apply' }} # the schedule has no inputs
+    secrets:
+      app-id: ${{ secrets.MELES_APP_ID }}
+      private-key: ${{ secrets.MELES_APP_PRIVATE_KEY }}

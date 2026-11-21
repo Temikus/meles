@@ -47,6 +47,22 @@ drift makes no writes. A repo opts out in its own `.meles.yml`; see
 GitHub App instead. Responses are cached by ETag under
 your user cache directory, so repeat runs cost little rate limit.
 
+## Run from a control repo
+
+meles can run on a schedule in GitHub Actions, with nothing to host.
+
+1. Create a GitHub App and install it on your account or org. It needs
+   Contents and Pull requests (read and write). Two more are optional, and
+   meles adapts when they are missing: Administration, to read and enforce
+   security settings, and Workflows, for changes under `.github/workflows/`.
+2. In the control repo, save the App's ID and private key as the secrets
+   `MELES_APP_ID` and `MELES_APP_PRIVATE_KEY`.
+3. Copy [examples/workflows/meles.yml](examples/workflows/meles.yml) to
+   `.github/workflows/meles.yml`. It runs `meles apply` daily. Start it by
+   hand with `command: plan` for a dry run.
+
+Each run writes its report to the job summary.
+
 Implemented policies: `deps.updater`, `security.features`,
 `governance.standards`, `governance.files`. Other kinds in the example are accepted and skipped
 with a warning until their milestone lands.
