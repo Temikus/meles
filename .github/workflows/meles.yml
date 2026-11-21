@@ -1,0 +1,73 @@
+name: meles
+
+# Reusable: a control repo calls this on a schedule. See examples/workflows/meles.yml.
+on:
+  workflow_call:
+    inputs:
+      command:
+        description: plan (never writes) or apply
+        type: string
+        default: apply
+      config:
+        description: Path to meles.yml in the control repo
+        type: string
+        default: meles.yml
+      owner:
+        description: Account to run on. Needed only when the App is installed on several.
+        type: string
+        default: ""
+      version:
+        description: meles version to install, as go install takes it
+        type: string
+        default: latest
+    secrets:
+      app-id:
+        description: ID of the GitHub App meles signs in as
+        required: true
+      private-key:
+        description: The App's private key, PEM contents
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  meles:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Two runs at once would both push to the housekeeping branches.
+    concurrency:
+      group: meles
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version: stable
+          cache: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: lts/*
+      # apply refuses Renovate configs it cannot check with renovate-config-validator.
+      - name: Install renovate-config-validator
+        run: npm install --global renovate
+      - name: Install meles
+        env:
+          VERSION: ${{ inputs.version }}
+        run: go install "github.com/temikus/meles/cmd/meles@${VERSION}"
+      - name: Run meles
+        env:
+          MELES_APP_ID: ${{ secrets.app-id }}
+          MELES_APP_PRIVATE_KEY: ${{ secrets.private-key }}
+          COMMAND: ${{ inputs.command }}
+          CONFIG: ${{ inputs.config }}
+          OWNER: ${{ inputs.owner }}
+        run: |
+          case "$COMMAND" in
+            plan) args=(plan) ;;
+            apply) args=(apply --yes) ;;
+            *) echo "::error::command must be plan or apply, got '$COMMAND'"; exit 2 ;;
+          esac
+          args+=(-c "$CONFIG" -v)
+          if [ -n "$OWNER" ]; then args+=(--owner "$OWNER"); fi
+          "$(go env GOPATH)/bin/meles" "${args[@]}"
