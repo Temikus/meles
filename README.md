@@ -41,6 +41,9 @@ and asks for `yes` first, unless you pass `--yes`. A second run with no
 drift makes no writes. A repo opts out in its own `.meles.yml`; see
 [examples/.meles.yml](examples/.meles.yml).
 
+In GitHub Actions, `plan` and `apply` also write their report to the job
+summary.
+
 `plan` is the default command. The token comes from `GH_TOKEN`,
 `GITHUB_TOKEN`, or `gh auth token`. With `MELES_APP_ID` and
 `MELES_APP_PRIVATE_KEY` (the PEM contents) set, meles signs in as that

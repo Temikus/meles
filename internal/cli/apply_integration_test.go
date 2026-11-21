@@ -85,12 +85,28 @@ func TestIntegrationApply(t *testing.T) {
 		return n
 	}
 
+	summary := filepath.Join(t.TempDir(), "summary.md")
+	t.Setenv("GITHUB_STEP_SUMMARY", summary)
+
 	config("", ".meles-it/hello.txt")
 	out, _ := apply("first run")
 	first := prNumber("first run", out)
 
 	if _, n := apply("no drift"); n != 0 {
 		t.Errorf("no drift: %d writes, want 0", n)
+	}
+	md, err := os.ReadFile(summary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"| file:.meles-it/hello.txt | pr |",
+		fmt.Sprintf("- %s: opened #%d\n", full, first),
+		"- No changes. GitHub matches the config",
+	} {
+		if !strings.Contains(string(md), want) {
+			t.Errorf("job summary lacks %q:\n%s", want, md)
+		}
 	}
 
 	config("", ".meles-it/hello.txt", ".meles-it/second.txt")

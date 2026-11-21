@@ -36,6 +36,7 @@ func TestGolden(t *testing.T) {
 	for name, write := range map[string]func(*bytes.Buffer, Plan) error{
 		"plan.txt":  func(b *bytes.Buffer, p Plan) error { return WriteTable(b, p) },
 		"plan.json": func(b *bytes.Buffer, p Plan) error { return WriteJSON(b, p) },
+		"plan.md":   func(b *bytes.Buffer, p Plan) error { return WriteMarkdown(b, p) },
 	} {
 		t.Run(name, func(t *testing.T) {
 			var got bytes.Buffer
@@ -56,6 +57,31 @@ func TestGolden(t *testing.T) {
 				t.Errorf("output differs from %s (run with -update to accept):\n%s", golden, got.String())
 			}
 		})
+	}
+}
+
+func TestMarkdownNoFindings(t *testing.T) {
+	var got bytes.Buffer
+	p := Plan{Summary: Summary{Repos: 3}, Warnings: []string{"policy ci.shape is not implemented yet, skipped"}}
+	if err := WriteMarkdown(&got, p); err != nil {
+		t.Fatal(err)
+	}
+	want := "Checked 3 repos: no findings.\n\n**Warnings**\n\n- policy ci.shape is not implemented yet, skipped\n"
+	if got.String() != want {
+		t.Errorf("got %q, want %q", got.String(), want)
+	}
+}
+
+func TestMarkdownEscapesCells(t *testing.T) {
+	p := samplePlan()
+	p.Repos[0].Items[0].Finding.Message = "want a|b"
+	p.Repos[0].Items[0].Invalid = "fake: bad\nmore"
+	var got bytes.Buffer
+	if err := WriteMarkdown(&got, p); err != nil {
+		t.Fatal(err)
+	}
+	if want := `| want a\|b [INVALID: fake: bad] |`; !strings.Contains(got.String(), want) {
+		t.Errorf("no cell %q in:\n%s", want, got.String())
 	}
 }
 

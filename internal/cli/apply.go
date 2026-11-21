@@ -35,6 +35,14 @@ func runApply(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 	if err := plan.WriteTable(stdout, r.plan); err != nil {
 		return err
 	}
+	// say prints a line and keeps it for the job summary.
+	var outcome []string
+	say := func(format string, a ...any) {
+		l := fmt.Sprintf(format, a...)
+		outcome = append(outcome, l)
+		fmt.Fprintln(stdout, l)
+	}
+	defer func() { writeJobSummary(stderr, "meles apply", r.plan, outcome) }()
 
 	opts := apply.Options{
 		Branch: r.cfg.Defaults.PR.Branch, Labels: r.cfg.Defaults.PR.Labels,
@@ -57,14 +65,14 @@ func runApply(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 		switch d.Kind {
 		case apply.Blocked:
 			blocked++
-			fmt.Fprintf(stdout, "%s: blocked: %s\n", name, d.Reason)
+			say("%s: blocked: %s", name, d.Reason)
 		case apply.Deferred:
 			deferred++
-			fmt.Fprintf(stdout, "%s: deferred: %s\n", name, d.Reason)
+			say("%s: deferred: %s", name, d.Reason)
 		}
 		if d.SettingsDeferred {
 			deferred++
-			fmt.Fprintf(stdout, "%s: settings deferred: maxPerRun reached\n", name)
+			say("%s: settings deferred: maxPerRun reached", name)
 		}
 		if d.Writes() {
 			writing++
@@ -74,7 +82,7 @@ func runApply(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 		}
 	}
 	if writing == 0 {
-		fmt.Fprintf(stdout, "No changes. GitHub matches the config (%d blocked, %d deferred).\n", blocked, deferred)
+		say("No changes. GitHub matches the config (%d blocked, %d deferred).", blocked, deferred)
 		return nil
 	}
 	if !*yes {
@@ -83,6 +91,7 @@ func runApply(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 			return err
 		}
 		if !ok {
+			outcome = append(outcome, "Apply cancelled.")
 			return errors.New("apply cancelled")
 		}
 	}
@@ -104,16 +113,17 @@ func runApply(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 		name := d.Repo.FullName()
 		done, err := ex.Execute(ctx, d)
 		for _, l := range done {
-			fmt.Fprintf(stdout, "%s: %s\n", name, l)
+			say("%s: %s", name, l)
 		}
 		if err != nil {
 			failed++
-			fmt.Fprintf(stdout, "%s: error: %v\n", name, err)
+			say("%s: error: %v", name, err)
 			continue
 		}
 		changed++
 	}
-	fmt.Fprintf(stdout, "\nApplied: %d repos changed, %d blocked, %d deferred, %d failed.\n", changed, blocked, deferred, failed)
+	fmt.Fprintln(stdout)
+	say("Applied: %d repos changed, %d blocked, %d deferred, %d failed.", changed, blocked, deferred, failed)
 	if failed > 0 {
 		return fmt.Errorf("%d repos failed", failed)
 	}
